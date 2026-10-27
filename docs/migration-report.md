@@ -36,3 +36,7 @@ The artwork follow-up passed 352 Java regression tests and nine Python checks. L
 ## Initial PurityWallet release version
 
 The initial PurityWallet release version is `1.0.0b`, replacing the inherited product version `2.5.6`. Upstream attribution still identifies Sparrow Wallet 2.5.6. The application, banners and archive filenames use `1.0.0b`; native metadata uses numeric `1.0.0`. The download verifier retains the beta suffix when locating release manifests and signatures.
+
+## Windows installer validation
+
+[GitHub Actions run 40490528703](https://github.com/PurityWallet/PurityWalletPC/actions/runs/40490528703) built the Windows x64 MSI from commit `e47afe4d7a8441fe3d0ce1300fdba736d1b746e7`. The Windows job passed the Java test task and eleven Python checks, successfully installed the MSI and verified `PurityWallet 1.0.0b` from the installed executable. The downloaded MSI matched its SHA-256 file. See [TASK-004](tasks/TASK-004.md) for the artifact details. This supersedes the earlier Windows validation limitation; Linux native execution remains unverified. The MSI is not code-signed.

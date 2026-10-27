@@ -122,3 +122,5 @@ python src/test/packaging_test.py
 The Windows-only workflow is `.github/workflows/windows-package.yaml`. It runs on `windows-2022`, tests the project, builds an MSI, installs it on the disposable runner and checks the installed `puritywallet.exe --version` output. It uploads `puritywallet-1.0.0b-windows-x64.msi` and its SHA-256 file. MSI product metadata uses numeric version `1.0.0`. The installer is not Authenticode-signed.
 
 A push to `codex/puritywallet-windows-1.0.0b` starts this build; it can also be dispatched manually once the workflow is registered on the repository's default branch. Publishing the current local changes to GitHub requires user approval before any push. The workflow does not create a public release or merge changes.
+
+The first verified Windows build is [run 40490528703](https://github.com/PurityWallet/PurityWalletPC/actions/runs/40490528703), built from commit `e47afe4d7a8441fe3d0ce1300fdba736d1b746e7`. Its MSI passed installation and installed-version checks on the Windows runner. Artifact size and checksums are recorded in [TASK-004](tasks/TASK-004.md).
