@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.sparrowwallet.sparrow.AppServices;
@@ -5,6 +6,8 @@ import javafx.beans.NamedArg;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.layout.StackPane;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.girod.javafx.svgimage.SVGImage;
 import org.girod.javafx.svgimage.SVGLoader;
 import org.slf4j.Logger;
@@ -40,6 +43,15 @@ public class DialogImage extends StackPane {
     }
 
     protected void refresh(Type type) {
+        if(type == Type.PURITYWALLET) {
+            ImageView logo = new ImageView(new Image(AppServices.class.getResource("/image/puritywallet-logo.png").toExternalForm()));
+            logo.setFitWidth(WIDTH);
+            logo.setFitHeight(HEIGHT);
+            logo.setPreserveRatio(true);
+            getChildren().setAll(logo);
+            return;
+        }
+
         SVGImage svgImage;
         if(AppServices.isDarkTheme()) {
             svgImage = loadSVGImage("/image/dialog/" + type.name().toLowerCase(Locale.ROOT) + "-invert.svg");
@@ -79,6 +91,6 @@ public class DialogImage extends StackPane {
     }
 
     public enum Type {
-        SPARROW, SEED, PAYNYM, BORDERWALLETS, USERADD, WHIRLPOOL;
+        PURITYWALLET, SEED, PAYNYM, BORDERWALLETS, USERADD, WHIRLPOOL;
     }
 }

@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.google.common.net.HostAndPort;
@@ -17,54 +18,7 @@ import java.net.URL;
 import java.util.List;
 
 public enum BroadcastSource {
-    BLOCKSTREAM_INFO("blockstream.info", "https://blockstream.info", "http://explorerzydxu5ecjrkwceayqybizmpjjznk5izmitf2modhcusuqlid.onion") {
-        @Override
-        public Sha256Hash broadcastTransaction(Transaction transaction) throws BroadcastException {
-            String data = Utils.bytesToHex(transaction.bitcoinSerialize());
-            return postTransactionData(data);
-        }
-
-        @Override
-        public List<Network> getSupportedNetworks() {
-            return List.of(Network.MAINNET, Network.TESTNET);
-        }
-
-        protected URL getURL(HostAndPort proxy) throws MalformedURLException, URISyntaxException {
-            if(Network.get() == Network.MAINNET) {
-                return new URI(getBaseUrl(proxy) + "/api/tx").toURL();
-            } else if(Network.get() == Network.TESTNET) {
-                return new URI(getBaseUrl(proxy) + "/testnet/api/tx").toURL();
-            } else {
-                throw new IllegalStateException("Cannot broadcast transaction to " + getName() + " on network " + Network.get());
-            }
-        }
-    },
-    MEMPOOL_SPACE("mempool.space", "https://mempool.space", "http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion") {
-        public Sha256Hash broadcastTransaction(Transaction transaction) throws BroadcastException {
-            String data = Utils.bytesToHex(transaction.bitcoinSerialize());
-            return postTransactionData(data);
-        }
-
-        @Override
-        public List<Network> getSupportedNetworks() {
-            return List.of(Network.MAINNET, Network.TESTNET, Network.SIGNET, Network.TESTNET4);
-        }
-
-        protected URL getURL(HostAndPort proxy) throws MalformedURLException, URISyntaxException {
-            if(Network.get() == Network.MAINNET) {
-                return new URI(getBaseUrl(proxy) + "/api/tx").toURL();
-            } else if(Network.get() == Network.TESTNET) {
-                return new URI(getBaseUrl(proxy) + "/testnet/api/tx").toURL();
-            } else if(Network.get() == Network.SIGNET) {
-                return new URI(getBaseUrl(proxy) + "/signet/api/tx").toURL();
-            } else if(Network.get() == Network.TESTNET4) {
-                return new URI(getBaseUrl(proxy) + "/testnet4/api/tx").toURL();
-            } else {
-                throw new IllegalStateException("Cannot broadcast transaction to " + getName() + " on network " + Network.get());
-            }
-        }
-    },
-    MEMPOOL_EMZY_DE("mempool.emzy.de", "https://mempool.emzy.de", "http://mempool4t6mypeemozyterviq3i5de4kpoua65r3qkn5i3kknu5l2cad.onion") {
+    MEMPOOL_SPACE("mempool.bitcoinpurity.org", "https://mempool.bitcoinpurity.org", "https://mempool.bitcoinpurity.org") {
         public Sha256Hash broadcastTransaction(Transaction transaction) throws BroadcastException {
             String data = Utils.bytesToHex(transaction.bitcoinSerialize());
             return postTransactionData(data);
@@ -78,10 +32,6 @@ public enum BroadcastSource {
         protected URL getURL(HostAndPort proxy) throws MalformedURLException, URISyntaxException {
             if(Network.get() == Network.MAINNET) {
                 return new URI(getBaseUrl(proxy) + "/api/tx").toURL();
-            } else if(Network.get() == Network.TESTNET) {
-                return new URI(getBaseUrl(proxy) + "/testnet/api/tx").toURL();
-            } else if(Network.get() == Network.SIGNET) {
-                return new URI(getBaseUrl(proxy) + "/signet/api/tx").toURL();
             } else {
                 throw new IllegalStateException("Cannot broadcast transaction to " + getName() + " on network " + Network.get());
             }

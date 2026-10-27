@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.terminal.settings;
 
 import com.googlecode.lanterna.TerminalSize;
@@ -72,7 +73,7 @@ public class GeneralDialog extends DialogWindow {
         unitFormat.setSelectedIndex(Config.get().getUnitFormat() == UnitFormat.COMMA ? 1 : 0);
 
         if(Config.get().getExchangeSource() == null) {
-            Config.get().setExchangeSource(ExchangeSource.COINGECKO);
+            Config.get().setExchangeSource(ExchangeSource.NONE);
         }
         exchangeSource.setSelectedItem(Config.get().getExchangeSource());
 

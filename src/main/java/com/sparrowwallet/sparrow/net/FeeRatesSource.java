@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.Network;
@@ -28,7 +29,7 @@ public enum FeeRatesSource {
             return true;
         }
     },
-    MEMPOOL_SPACE("mempool.space", true) {
+    MEMPOOL_SPACE("mempool.bitcoinpurity.org", true) {
         @Override
         public Map<Integer, Double> getBlockTargetFeeRates(Map<Integer, Double> defaultblockTargetFeeRates) {
             String url = getApiUrl() + "v1/fees/precise";
@@ -60,87 +61,11 @@ public enum FeeRatesSource {
         }
 
         private String getApiUrl() {
-            String url = AppServices.isUsingProxy() ? "http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion/api/" : "https://mempool.space/api/";
+            String url = "https://mempool.bitcoinpurity.org/api/";
             if(Network.get() != Network.MAINNET && supportsNetwork(Network.get())) {
                 url = url.replace("/api/", "/" + Network.get().getName() + "/api/");
             }
             return url;
-        }
-
-        @Override
-        public boolean supportsNetwork(Network network) {
-            return network == Network.MAINNET || network == Network.TESTNET || network == Network.TESTNET4 || network == Network.SIGNET;
-        }
-    },
-    BITVIEW_SPACE("bitview.space", true) {
-        @Override
-        public Map<Integer, Double> getBlockTargetFeeRates(Map<Integer, Double> defaultblockTargetFeeRates) {
-            String url = getApiUrl() + "v1/fees/precise";
-            return getThreeTierFeeRates(this, defaultblockTargetFeeRates, url);
-        }
-
-        @Override
-        public Double getNextBlockMedianFeeRate() throws Exception {
-            String url = getApiUrl() + "v1/fees/mempool-blocks";
-            return requestNextBlockMedianFeeRate(this, url);
-        }
-
-        @Override
-        public BlockSummary getBlockSummary(Sha256Hash blockId) throws Exception {
-            String url = getApiUrl() + "v1/block/" + Utils.bytesToHex(blockId.getReversedBytes());
-            return requestBlockSummary(this, url);
-        }
-
-        @Override
-        public Map<Integer, BlockSummary> getRecentBlockSummaries() throws Exception {
-            String url = getApiUrl() + "v1/blocks";
-            return requestBlockSummaries(this, url);
-        }
-
-        @Override
-        public List<BlockTransactionHash> getRecentMempoolTransactions() throws Exception {
-            String url = getApiUrl() + "mempool/recent";
-            return requestRecentMempoolTransactions(this, url);
-        }
-
-        private String getApiUrl() {
-            return "https://bitview.space/api/";
-        }
-
-        @Override
-        public boolean supportsNetwork(Network network) {
-            return network == Network.MAINNET;
-        }
-    },
-    BLOCK_XYZ("block.xyz", true) {
-        /*
-            https://engineering.block.xyz/blog/augur-an-open-source-bitcoin-fee-estimation-library
-         */
-        @Override
-        public Map<Integer, Double> getBlockTargetFeeRates(Map<Integer, Double> defaultblockTargetFeeRates) {
-            String url = "https://pricing.bitcoin.block.xyz/fees";
-            return getThreeTierFeeRates(this, defaultblockTargetFeeRates, url);
-        }
-
-        @Override
-        public boolean supportsNetwork(Network network) {
-            return network == Network.MAINNET;
-        }
-
-        @Override
-        protected ThreeTierRates getThreeTierRates(String url, HttpClientService httpClientService) throws Exception {
-            BlockXyzRates rates = httpClientService.requestJson(url, BlockXyzRates.class, null);
-            if(rates.estimates == null) {
-                throw new Exception("Invalid response from " + url);
-            }
-            return rates.getThreeTierRates();
-        }
-    },
-    BITCOINFEES_EARN_COM("bitcoinfees.earn.com", true) {
-        @Override
-        public Map<Integer, Double> getBlockTargetFeeRates(Map<Integer, Double> defaultblockTargetFeeRates) {
-            String url = "https://bitcoinfees.earn.com/api/v1/fees/recommended";
-            return getThreeTierFeeRates(this, defaultblockTargetFeeRates, url);
         }
 
         @Override

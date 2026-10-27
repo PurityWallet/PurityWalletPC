@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.io.satochip;
 
 import com.sparrowwallet.drongo.ExtendedKey;
@@ -202,7 +203,7 @@ public class SatoCardApi extends CardApi {
         // 2FA is optional, currently not supported in sparrow as it requires to send 2FA to a mobile app through a server.
         SatoCardStatus cardStatus = this.getStatus();
         if(cardStatus.needs2FA()) {
-            throw new CardException("Satochip 2FA is not (yet) supported within Sparrow");
+            throw new CardException("Satochip 2FA is not (yet) supported within PurityWallet");
         }
 
         // derive the correct key in satochip
@@ -308,7 +309,7 @@ public class SatoCardApi extends CardApi {
                 // 2FA is optional, currently not supported in sparrow as it requires to send 2FA to a mobile app through a server.
                 SatoCardStatus cardStatus = getStatus();
                 if(cardStatus.needs2FA()) {
-                    throw new CardException("Satochip 2FA is not (yet) supported within Sparrow");
+                    throw new CardException("Satochip 2FA is not (yet) supported within PurityWallet");
                 }
 
                 // verify PIN

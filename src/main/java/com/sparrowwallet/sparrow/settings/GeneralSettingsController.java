@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.settings;
 
 import com.sparrowwallet.drongo.wallet.Wallet;
@@ -66,8 +67,6 @@ public class GeneralSettingsController extends SettingsDetailController {
     @FXML
     private UnlabeledToggleSwitch notifyNewTransactions;
 
-    @FXML
-    private UnlabeledToggleSwitch checkNewVersions;
 
     private final ChangeListener<Currency> fiatCurrencyListener = new ChangeListener<Currency>() {
         @Override
@@ -141,7 +140,7 @@ public class GeneralSettingsController extends SettingsDetailController {
         if(config.getExchangeSource() != null) {
             exchangeSource.setValue(config.getExchangeSource());
         } else {
-            exchangeSource.getSelectionModel().select(2);
+            exchangeSource.getSelectionModel().select(0);
             config.setExchangeSource(exchangeSource.getValue());
         }
 
@@ -183,11 +182,6 @@ public class GeneralSettingsController extends SettingsDetailController {
             config.setNotifyNewTransactions(newValue);
         });
 
-        checkNewVersions.setSelected(config.isCheckNewVersions());
-        checkNewVersions.selectedProperty().addListener((observableValue, oldValue, newValue) -> {
-            config.setCheckNewVersions(newValue);
-            EventManager.get().post(new VersionCheckStatusEvent(newValue));
-        });
     }
 
     private static Server getBlockExplorer(String serverUrl) {

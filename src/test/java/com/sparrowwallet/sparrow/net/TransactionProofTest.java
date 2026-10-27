@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.github.arteam.simplejsonrpc.client.Transport;
@@ -11,7 +12,7 @@ import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.policy.Policy;
 import com.sparrowwallet.drongo.policy.PolicyType;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.sparrow.net.HeaderChainState;
 import com.sparrowwallet.drongo.protocol.Script;
 import com.sparrowwallet.drongo.protocol.ScriptType;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
@@ -606,7 +607,7 @@ public class TransactionProofTest {
             Wallet wallet = testWallet();
             Transaction transaction = blockTransactions.getFirst();
             server.setProofFailure(new ElectrumServerRpcException("Batch too large"));
-            int height = Network.MAINNET.getHeaderCheckpoints().getMaxHeight() + 1;
+            int height = HeaderCheckpoints.get(Network.MAINNET).getMaxHeight() + 1;
             Map<WalletNode, Set<BlockTransactionHash>> nodeTransactionMap = references(wallet, reference(transaction, height));
 
             ElectrumServer electrumServer = new ElectrumServer();
@@ -864,7 +865,7 @@ public class TransactionProofTest {
             Transaction transaction = blockTransactions.getFirst();
             server.setProofFailure(new UnsupportedMethodException("blockchain.transaction.get_merkle", null));
             //Above the last pin, so nothing is fetched ahead of the call that is missing
-            int height = Network.MAINNET.getHeaderCheckpoints().getMaxHeight() + 1;
+            int height = HeaderCheckpoints.get(Network.MAINNET).getMaxHeight() + 1;
             Map<WalletNode, Set<BlockTransactionHash>> nodeTransactionMap = references(wallet, reference(transaction, height));
 
             ElectrumServer electrumServer = new ElectrumServer();

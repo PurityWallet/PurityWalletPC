@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.wallet;
 
 import com.sparrowwallet.drongo.wallet.Wallet;
@@ -33,7 +34,7 @@ public class MultisigBackupDialog extends Dialog<String> {
         dialogPane.setHeaderText("To restore this multisig wallet, you need at least " + wallet.getDefaultPolicy().getNumSignaturesRequired() + " seeds and ALL of the xpubs! " +
                 "For the xpubs, it is recommended to backup either this wallet file, or the wallet output descriptor.\n\n" +
                 "The wallet output descriptor contains all " + wallet.getKeystores().size() + " of the xpubs and is shown below. " +
-                "Alternatively, use the Export button below to export the Sparrow wallet file.");
+                "Alternatively, use the Export button below to export the PurityWallet wallet file.");
         setDialogPane(dialogPane);
 
         dialogPane.getStyleClass().addAll("alert", "warning");

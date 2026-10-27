@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.terminal.settings;
 
 import com.googlecode.lanterna.TerminalSize;
@@ -25,7 +26,7 @@ public class BitcoinCoreDialog extends ServerUrlDialog {
     private String httpsHost;
 
     public BitcoinCoreDialog() {
-        super("Bitcoin Core");
+        super("Bitcoin Purity Core");
 
         setHints(List.of(Hint.CENTERED));
         Panel mainPanel = new Panel(new GridLayout(3).setHorizontalSpacing(2).setVerticalSpacing(0));
@@ -87,7 +88,7 @@ public class BitcoinCoreDialog extends ServerUrlDialog {
             }
         });
         selectDataFolder.addListener(button -> {
-            DirectoryDialogBuilder builder = new DirectoryDialogBuilder().setTitle("Select Bitcoin Core Data Folder").setActionLabel("Select");
+            DirectoryDialogBuilder builder = new DirectoryDialogBuilder().setTitle("Select Bitcoin Purity Core Data Folder").setActionLabel("Select");
             builder.setShowHiddenDirectories(true);
             builder.setSelectedDirectory(Config.get().getCoreDataDir() == null ? new File(System.getProperty("user.home")) : Config.get().getCoreDataDir());
             File file = builder.build().showDialog(SparrowTerminal.get().getGui());

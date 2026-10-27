@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.settings;
 
 import com.sparrowwallet.sparrow.AppServices;
@@ -39,7 +40,7 @@ public class ServerAliasDialog extends Dialog<Server> {
         setTitle("Server Aliases");
         dialogPane.getStylesheets().add(AppServices.class.getResource("general.css").toExternalForm());
         dialogPane.setHeaderText("Configure aliases for recently connected servers.\nNew servers are added to this list on successful connections.");
-        dialogPane.setGraphic(new DialogImage(DialogImage.Type.SPARROW));
+        dialogPane.setGraphic(new DialogImage(DialogImage.Type.PURITYWALLET));
 
         serverTable = new TableView<>();
         serverTable.setPlaceholder(new Label("No servers added yet"));

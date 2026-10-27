@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
+
+cd `dirname $0`
+args="$*"
+args="${args%"${args##*[![:space:]]}"}"
+
+if [ -n "$args" ]
+then
+  ./gradlew run --args="$args"
+else
+  ./gradlew run
+fi

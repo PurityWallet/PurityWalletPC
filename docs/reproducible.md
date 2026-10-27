@@ -1,18 +1,19 @@
-# Reproducible builds
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
+# PurityWallet builds
 
-Reproducibility is a goal of the Sparrow Wallet project.
-As of v1.5.0 and later, it is possible to recreate the exact binaries in the Github releases (specifically, the contents of the `.tar.gz` and `.zip` files).
+Build with the pinned JDK and dependency commits below. PurityWallet binaries
+must be compared with a matching PurityWallet source revision; Sparrow release
+binaries and signing keys do not authenticate PurityWallet releases.
 
-Due to minor variances, it is not yet possible to reproduce the installer packages (`.deb`, `.rpm` and `.exe`).
-In addition, the OSX binary is code signed and thus can't be directly reproduced yet.
-Work on resolving both of these issues is ongoing.
+The inherited build process is described below. Cross-platform reproducibility
+and signed releases must be verified separately for each PurityWallet release.
 
 ## Reproducing a release
 
 ### Install Java
 
-Because Sparrow bundles a Java runtime in the release binaries, it is essential to have the same version of Java installed when creating the release.
-For v1.6.6 to v1.9.1, this was Eclipse Temurin 18.0.1+10. For v2.0.0 to v2.3.1, this was Eclipse Temurin 22.0.2+9. For v2.4.0 and later, Eclipse Temurin 25.0.2+10 is used.
+Because PurityWallet bundles a Java runtime in the release binaries, it is essential to have the same version of Java installed when creating the release.
+The inherited Sparrow build used Eclipse Temurin 18.0.1+10 for Sparrow v1.6.6 through v1.9.1, and 22.0.2+9 for Sparrow v2.0.0 through v2.3.1. PurityWallet 1.0.0b uses Eclipse Temurin 25.0.2+10.
 
 Note: Do not install Java using a system package manager (e.g. apt, dnf, rpm). 
 Linux packages replace the JDK's bundled `cacerts` file with a symlink to the system CA certificates, which differ from those in the release tarballs and will produce a non-reproducible build.
@@ -56,19 +57,19 @@ sudo apt install -y rpm fakeroot binutils
 First, assign a temporary variable in your shell for the specific release you want to build. For the current one specify:
 
 ```shell
-GIT_TAG="2.5.5"
+GIT_TAG="<PurityWallet release tag>"
 ```
 
 The project can then be initially cloned as follows:
 
 ```shell
-git clone --recursive --branch "${GIT_TAG}" https://github.com/sparrowwallet/sparrow.git
+git clone --recursive --branch "${GIT_TAG}" https://github.com/PurityWallet/PurityWalletPC.git
 ```
 
-If you already have the sparrow repo cloned, fetch all new updates and checkout the release. For this, change into your local sparrow folder and execute:
+If you already have the PurityWalletPC repo cloned, fetch all new updates and checkout the release. For this, change into your local PurityWalletPC folder and execute:
 
 ```shell
-cd {yourPathToSparrow}/sparrow
+cd {yourPathToPurityWalletPC}/PurityWalletPC
 git pull --recurse-submodules
 git checkout "${GIT_TAG}"
 ```
@@ -82,10 +83,10 @@ To checkout the submodule to the correct commit for `GIT_TAG`, additionally run:
 git submodule update --checkout
 ```
 
-Thereafter, building should be straightforward. If not already done, change into the sparrow folder and run:
+Thereafter, building should be straightforward. If not already done, change into the PurityWalletPC folder and run:
 
 ```shell
-cd {yourPathToSparrow}/sparrow  # if you aren't already in the sparrow folder
+cd {yourPathToPurityWalletPC}/PurityWalletPC  # if you aren't already in the PurityWalletPC folder
 ./gradlew jpackage
 ```
 
@@ -93,16 +94,31 @@ The binaries (and installers) will be placed in the `build/jpackage` folder.
 
 ### Verifying the binaries are identical
 
-Verify the built binaries against the released binaries on https://github.com/sparrowwallet/sparrow/releases.
+Verify the built binaries against the released binaries on https://github.com/PurityWallet/PurityWalletPC/releases.
 
-Note that you will be verifying the files in the `build/jpackage/Sparrow` folder against either the `.tar.gz` or `.zip` releases.
+Note that you will be verifying the files in the `build/jpackage/puritywallet` folder against either the `.tar.gz` or `.zip` releases.
 Download either of these depending on your platform and extract the contents to a folder (in the following example, `/tmp`).
 Then compare all of the folders and files recursively:
 
 ```shell
-diff -r build/jpackage/Sparrow /tmp/Sparrow
+diff -r build/jpackage/puritywallet /tmp/puritywallet
 ```
 
 This command should have no output indicating that the two folders (and all their contents) are identical.
 
 If there is output, please open an issue with detailed instructions to reproduce, including build system platform.
+
+## Windows x64 MSI installer
+
+Windows MSI packaging requires a Windows host, the pinned Temurin 25.0.2 JDK and WiX Toolset 3.x (`candle.exe` and `light.exe` on PATH). The current custom WiX template uses the WiX 3 schema.
+
+Run on Windows:
+
+```powershell
+python src/test/packaging_test.py
+./gradlew :test :jpackage
+```
+
+The Windows-only workflow is `.github/workflows/windows-package.yaml`. It runs on `windows-2022`, tests the project, builds an MSI, installs it on the disposable runner and checks the installed `puritywallet.exe --version` output. It uploads `puritywallet-1.0.0b-windows-x64.msi` and its SHA-256 file. MSI product metadata uses numeric version `1.0.0`. The installer is not Authenticode-signed.
+
+A push to `codex/puritywallet-windows-1.0.0b` starts this build; it can also be dispatched manually once the workflow is registered on the repository's default branch. Publishing the current local changes to GitHub requires user approval before any push. The workflow does not create a public release or merge changes.

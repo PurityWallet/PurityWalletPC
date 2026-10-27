@@ -1,6 +1,6 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
-import com.sparrowwallet.drongo.OsType;
 import javafx.application.Platform;
 import javafx.stage.Stage;
 import org.slf4j.Logger;
@@ -32,21 +32,15 @@ public class TrayManager {
 
         try {
             List<Image> imgList = new ArrayList<>();
-            if(OsType.getCurrent() == OsType.WINDOWS) {
-                imgList.add(ImageIO.read(getClass().getResource("/image/sparrow-black-small.png")));
-                imgList.add(ImageIO.read(getClass().getResource("/image/sparrow-black-small@2x.png")));
-                imgList.add(ImageIO.read(getClass().getResource("/image/sparrow-black-small@3x.png")));
-            } else {
-                imgList.add(ImageIO.read(getClass().getResource("/image/sparrow-white-small.png")));
-                imgList.add(ImageIO.read(getClass().getResource("/image/sparrow-white-small@2x.png")));
-                imgList.add(ImageIO.read(getClass().getResource("/image/sparrow-white-small@3x.png")));
-            }
+            imgList.add(ImageIO.read(getClass().getResource("/image/puritywallet-tray.png")));
+            imgList.add(ImageIO.read(getClass().getResource("/image/puritywallet-tray@2x.png")));
+            imgList.add(ImageIO.read(getClass().getResource("/image/puritywallet-tray@4x.png")));
 
             BaseMultiResolutionImage mrImage = new BaseMultiResolutionImage(imgList.toArray(new Image[0]));
 
-            this.trayIcon = new TrayIcon(mrImage, "Sparrow", popupMenu);
+            this.trayIcon = new TrayIcon(mrImage, "PurityWallet", popupMenu);
 
-            MenuItem miExit = new MenuItem("Quit Sparrow");
+            MenuItem miExit = new MenuItem("Quit PurityWallet");
             miExit.addActionListener(e -> {
                 SwingUtilities.invokeLater(() -> { tray.remove(this.trayIcon); });
                 Platform.exit();

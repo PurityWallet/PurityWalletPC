@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.io;
 
 import com.google.common.io.CharStreams;
@@ -223,7 +224,7 @@ public class ColdcardMultisig implements WalletImport, KeystoreFileImport, Walle
 
         try {
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
-            writer.append("# " + getName() + " setup file (created by Sparrow)\n");
+            writer.append("# " + getName() + " setup file (created by PurityWallet)\n");
             writer.append("#\n");
             writer.append("Name: ").append(wallet.getFullName().length() >= 20 ? (wallet.getDisplayName().length() >= 20 ? wallet.getDisplayName().substring(0, 20) : wallet.getDisplayName()) : wallet.getFullName()).append("\n");
             writer.append("Policy: ").append(Integer.toString(wallet.getDefaultPolicy().getNumSignaturesRequired())).append(" of ").append(Integer.toString(wallet.getKeystores().size())).append("\n");

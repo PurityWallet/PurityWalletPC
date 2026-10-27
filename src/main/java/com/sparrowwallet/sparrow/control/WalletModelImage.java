@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.sparrowwallet.drongo.wallet.WalletModel;
@@ -6,6 +7,8 @@ import javafx.beans.NamedArg;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.layout.StackPane;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.girod.javafx.svgimage.SVGImage;
 import org.girod.javafx.svgimage.SVGLoader;
 import org.slf4j.Logger;
@@ -47,6 +50,15 @@ public class WalletModelImage extends StackPane {
     }
 
     protected void refresh(WalletModel walletModel) {
+        if(walletModel == WalletModel.SPARROW) {
+            ImageView logo = new ImageView(new Image(AppServices.class.getResource("/image/puritywallet-logo.png").toExternalForm()));
+            logo.setFitWidth(WIDTH);
+            logo.setFitHeight(HEIGHT);
+            logo.setPreserveRatio(true);
+            getChildren().setAll(logo);
+            return;
+        }
+
         SVGImage svgImage;
         if(AppServices.isDarkTheme()) {
             svgImage = loadSVGImage("/image/walletmodel/" + walletModel.getType() + "-invert.svg");

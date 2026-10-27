@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.sparrowwallet.drongo.wallet.TableType;
@@ -44,7 +45,7 @@ public class WalletSummaryDialog extends Dialog<Void> {
 
         AppServices.setStageIcon(dialogPane.getScene().getWindow());
         dialogPane.setHeaderText("Wallet Summary for " + (allOpenWallets ? "All Open Wallets" : masterWallets.get(0).getName()));
-        dialogPane.setGraphic(new DialogImage(DialogImage.Type.SPARROW));
+        dialogPane.setGraphic(new DialogImage(DialogImage.Type.PURITYWALLET));
 
         HBox hBox = new HBox(40);
 

@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow;
 
 import com.beust.jcommander.JCommander;
@@ -19,12 +20,12 @@ import java.io.File;
 import java.util.*;
 
 public class SparrowWallet {
-    public static final String APP_ID = "sparrow";
-    public static final String APP_NAME = "Sparrow";
-    public static final String APP_VERSION = "2.5.6";
+    public static final String APP_ID = "puritywallet";
+    public static final String APP_NAME = "PurityWallet";
+    public static final String APP_VERSION = "1.0.0b";
     public static final String APP_VERSION_SUFFIX = "";
     public static final String APP_HOME_PROPERTY = ApplicationDir.getHomeProperty(APP_NAME);
-    public static final String NETWORK_ENV_PROPERTY = "SPARROW_NETWORK";
+    public static final String NETWORK_ENV_PROPERTY = "PURITYWALLET_NETWORK";
     public static final String JPACKAGE_APP_PATH = "jpackage.app-path";
 
     private static Instance instance;
@@ -69,7 +70,7 @@ public class SparrowWallet {
         }
 
         if(args.version) {
-            System.out.println("Sparrow Wallet " + APP_VERSION);
+            System.out.println("PurityWallet " + APP_VERSION);
             System.exit(0);
         }
 
@@ -79,7 +80,7 @@ public class SparrowWallet {
 
         if(args.dir != null) {
             System.setProperty(APP_HOME_PROPERTY, args.dir);
-            getLogger().info("Using configured Sparrow home folder of " + args.dir);
+            getLogger().info("Using configured PurityWallet home folder of " + args.dir);
         }
 
         if(args.network != null) {
@@ -110,6 +111,11 @@ public class SparrowWallet {
         File signetFlag = new File(Storage.getConfigHome(), "network-" + Network.SIGNET.getName());
         if(signetFlag.exists()) {
             Network.set(Network.SIGNET);
+        }
+
+        if(Network.get() != Network.MAINNET && Network.get() != Network.REGTEST) {
+            System.err.println("PurityWallet supports Bitcoin Purity mainnet and development regtest only.");
+            System.exit(1);
         }
 
         if(Network.get() != Network.MAINNET) {
@@ -147,7 +153,7 @@ public class SparrowWallet {
         } catch(UnsupportedOperationException e) {
             Drongo.removeRootLogAppender("STDOUT");
             getLogger().error("Unable to launch application", e);
-            System.out.println("No display detected. Use Sparrow Server on a headless (no display) system.");
+            System.out.println("No display detected. Use PurityWallet on a headless (no display) system.");
 
             try {
                 if(instance != null) {

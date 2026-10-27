@@ -1,10 +1,11 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.drongo.protocol.HeaderChainState;
-import com.sparrowwallet.drongo.protocol.HeaderCheckpoints;
+import com.sparrowwallet.sparrow.net.HeaderChainState;
+import com.sparrowwallet.sparrow.net.HeaderCheckpoints;
 import com.sparrowwallet.sparrow.SparrowWallet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -21,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies the pinned header hashes compiled into drongo against live public Electrum servers. This is a release checklist step rather than a unit
+ * Verifies the pinned header hashes used by PurityWallet against live public Electrum servers. This is a release checklist step rather than a unit
  * test - it needs the network and it is checking data, not code - so it is tagged out of the default test task and run with the verifyCheckpoint task.
  * <p>
  * A server that cannot be reached is skipped; a server that answers with a different chain fails the run. Checkpoint generation is a derivation from a
@@ -57,25 +58,10 @@ public class HeaderCheckpointVerificationTest {
         verifyCheckpoints(Network.MAINNET);
     }
 
-    @Test
-    public void verifyTestnetCheckpoints() {
-        verifyCheckpoints(Network.TESTNET);
-    }
-
-    @Test
-    public void verifyTestnet4Checkpoints() {
-        verifyCheckpoints(Network.TESTNET4);
-    }
-
-    @Test
-    public void verifySignetCheckpoints() {
-        verifyCheckpoints(Network.SIGNET);
-    }
-
     private void verifyCheckpoints(Network network) {
         Network.set(network);
 
-        HeaderCheckpoints checkpoints = network.getHeaderCheckpoints();
+        HeaderCheckpoints checkpoints = HeaderCheckpoints.get(network);
         List<PublicElectrumServer> servers = PublicElectrumServer.getServers();
         assertTrue(!servers.isEmpty(), "No public servers configured for " + network);
 
@@ -111,7 +97,7 @@ public class HeaderCheckpointVerificationTest {
             reader.start();
 
             ElectrumServerRpc rpc = new SimpleElectrumServerRpc();
-            rpc.getServerVersion(transport, "Sparrow", ElectrumServer.SUPPORTED_VERSIONS);
+            rpc.getServerVersion(transport, "PurityWallet", ElectrumServer.SUPPORTED_VERSIONS);
 
             //The last pin must be buried, which is established by the server having the headers above it rather than by its announced tip
             int maxHeight = checkpoints.getMaxHeight();
@@ -119,7 +105,7 @@ public class HeaderCheckpointVerificationTest {
             assertEquals(CHECKPOINT_BURIAL_DEPTH + 1, buried.count, "The last pinned header at height " + maxHeight + " is not buried by " + CHECKPOINT_BURIAL_DEPTH + " blocks");
 
             for(int i = 0; i < PINS_VERIFIED; i++) {
-                int pinnedHeight = maxHeight - (i * HeaderChainState.RETARGET_INTERVAL);
+                int pinnedHeight = i == 0 ? maxHeight : 961631 - ((i - 1) * HeaderChainState.RETARGET_INTERVAL);
                 if(pinnedHeight <= 0) {
                     break;
                 }

@@ -1,125 +1,63 @@
-# Sparrow Bitcoin Wallet
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
+# PurityWallet
 
-Sparrow is a modern desktop Bitcoin wallet application supporting most hardware wallets and built on common standards such as PSBT, with an emphasis on transparency and usability.
+Current release version: **1.0.0b**. Native installer metadata uses numeric version **1.0.0**.
 
-More information (and release binaries) can be found at https://sparrowwallet.com. Release binaries are also available directly from [GitHub](https://github.com/sparrowwallet/sparrow/releases).
+PurityWallet is a desktop wallet for the **Bitcoin Purity** blockchain, derived from Sparrow Wallet. Its full and short product names are both **PurityWallet**.
 
-![Sparrow Wallet](https://sparrowwallet.com/assets/images/control-your-sends.png)
+Website: [bitcoininstitute.com/PurityWalletPC](https://bitcoininstitute.com/PurityWalletPC).
+Source and releases: [PurityWallet/PurityWalletPC](https://github.com/PurityWallet/PurityWalletPC).
 
-## Building
+## Build and run
 
-To clone this project, use
+Use Eclipse Temurin **25.0.2+10** (the release JDK), with `JAVA_HOME` pointing to it.
 
-`git clone --recursive git@github.com:sparrowwallet/sparrow.git`
-
-or for those without SSH credentials:
-
-`git clone --recursive https://github.com/sparrowwallet/sparrow.git`
-
-In order to build, Sparrow requires Java 25 or higher to be installed. 
-The release binaries are built with [Eclipse Temurin 25.0.2+10](https://github.com/adoptium/temurin25-binaries/releases/tag/jdk-25.0.2%2B10).
-If you are using [SDKMAN](https://sdkman.io/), you can use `sdk env install` to ensure you have the correct version.
-
-Other packages may also be necessary to build depending on the platform. On Debian/Ubuntu systems:
-
-`sudo apt install -y rpm fakeroot binutils`
-
-The Sparrow binaries can be built from source using
-
-`./gradlew jpackage`
-
-On Linux distributions without `deb` or `rpm` packaging tools installed (such as Arch), building the installers can be skipped with
-
-`./gradlew jpackage -PskipInstallers=true`
-
-Note that to build the Windows installer, you will need to install [WiX](https://github.com/wixtoolset/wix3/releases).
-
-When updating to the latest HEAD
-
-`git pull --recurse-submodules`
-
-The release binaries are reproducible from v1.5.0 onwards (pre codesigning and installer packaging). More detailed [instructions on reproducing the binaries](docs/reproducible.md) are provided.
-
-> Video documentation of your build process uploaded to [bitcoinbinary.org](https://bitcoinbinary.org/) is appreciated. Alternatively check the site if you wish to see if someone else already verified the provided binaries. 
-
-## Running
-
-If you prefer to run Sparrow directly from source, it can be launched from within the project directory with
-
-`./sparrow`
-
-Java 25 or higher must be installed. 
-
-## Configuration
-
-Sparrow has a number of command line options, for example to change its home folder or use testnet:
-
-```
-./sparrow -h
-
-Usage: sparrow [options]
-  Options:
-    --dir, -d
-      Path to Sparrow home folder
-    --help, -h
-      Show usage
-    --level, -l
-      Set log level
-      Possible Values: [ERROR, WARN, INFO, DEBUG, TRACE]      
-    --network, -n
-      Network to use
-      Possible Values: [mainnet, testnet, regtest, signet, testnet4]
+```sh
+git clone --recursive https://github.com/PurityWallet/PurityWalletPC.git
+cd PurityWalletPC
+./gradlew test
+python3 src/test/packaging_test.py
+./puritywallet
 ```
 
-Note that testnet currently refers to testnet3.
+On Windows use `puritywallet.bat`. Packaged executables are `puritywallet` / `puritywallet.exe`.
 
-As a fallback, the network (mainnet, testnet, testnet4, regtest or signet) can also be set using an environment variable `SPARROW_NETWORK`. For example:
+```sh
+./puritywallet --help
+./puritywallet --version
+./puritywallet --dir /path/to/puritywallet
+./puritywallet --terminal
+./gradlew jpackage
+```
 
-`export SPARROW_NETWORK=testnet`
+Distributions are generated under `build/jpackage`. See [build documentation](docs/reproducible.md).
 
-A final fallback which can be useful when running the Sparrow binary is to create a file called ``network-testnet`` in the Sparrow home folder (see below) to configure the testnet network.
+## Bitcoin Purity
 
-Note that if you are connecting to an Electrum server when using testnet, that server will need to be running on testnet configuration as well.
+- Public Electrum: `ssl://electrum.bitcoinpurity.org:50002`.
+- Explorer, fees and fallback broadcast: [mempool.bitcoinpurity.org](https://mempool.bitcoinpurity.org).
+- Private Electrum and Bitcoin Purity Core nodes can also be configured.
+- Mainnet headers are anchored to the Purity activation block at **961637** and validated using **ASERT**, with 600-second target spacing and a one-day half-life.
+- Bitcoin-compatible addresses, PSBT, `bitcoin:` payment URIs and BTC/sats amount encoding are retained, matching the existing mobile PurityWallet. BTC market-price sources and Sparrow automatic updates are disabled.
+- Bitcoin testnet, testnet4 and Signet are not configured as Purity networks; startup rejects them. Development regtest remains available with `--network regtest`.
 
-When not explicitly configured using the command line argument above, Sparrow stores its mainnet config file, log file and wallets in a home folder location appropriate to the operating system:
+## Application data
 
-| Platform | Location |
-|----------| -------- |
-| macOS    | ~/.sparrow |
-| Linux    | ~/.sparrow |
-| Windows  | %APPDATA%/Sparrow |
+PurityWallet has its own application identity and never automatically imports Sparrow configuration or wallets.
 
-Testnet3, testnet4, regtest and signet configurations (along with their wallets) are stored in subfolders to allow easy switching between networks.
+| Platform | Default home |
+| --- | --- |
+| macOS / Linux | `~/.puritywallet` |
+| Windows | `%APPDATA%/PurityWallet` |
 
-On macOS and Linux, Sparrow also supports the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/). 
-This is opt in: for each category below, if the corresponding directory already exists, Sparrow uses it, otherwise it continues to use the home folder above. Categories are resolved independently, so files can be moved across one at a time.
+The existing XDG directory mechanism is retained with the `puritywallet` directory name. Logs are named `puritywallet.log`. The home override is `-Dpuritywallet.home=...`; the network environment variable is `PURITYWALLET_NETWORK`.
 
-| Category | Location | Contents                              |
-|----------| -------- |---------------------------------------|
-| Config   | `$XDG_CONFIG_HOME/sparrow` (default `~/.config/sparrow`) | `config`, `network-*` markers         |
-| Data     | `$XDG_DATA_HOME/sparrow` (default `~/.local/share/sparrow`) | `wallets`, `certs`, `lark`            |
-| State    | `$XDG_STATE_HOME/sparrow` (default `~/.local/state/sparrow`) | `sparrow.log`, `tor/work`, lock files |
-| Cache    | `$XDG_CACHE_HOME/sparrow` (default `~/.cache/sparrow`) | `tor/cache`                           |
+## Brand assets
 
-Specifying a home folder with the `-d` argument disables XDG resolution entirely, and stores all files in the given folder.
+Application and UI icons reuse the mobile PurityWallet project's transparent blue-and-white logo. See [asset provenance and sizes](docs/branding.md). All project documentation is maintained in English.
 
-## Reporting Issues
+## License and attribution
 
-Please use the [Issues](https://github.com/sparrowwallet/sparrow/issues) tab above to report an issue. If possible, look in the sparrow.log file in the configuration directory for information helpful in debugging. 
+The actual upstream Sparrow Wallet source is licensed under **Apache License 2.0**, not GPLv2. PurityWallet retains the original [LICENSE](LICENSE), upstream attribution and the modification statement in [NOTICE](NOTICE). ASERT-related MIT attribution is included under [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES).
 
-## License
-
-Sparrow is licensed under the Apache 2 software licence.
-
-## GPG Key
-
-The Sparrow release binaries here and on [sparrowwallet.com](https://sparrowwallet.com/download/) are signed using [craigraw's GPG key](https://keybase.io/craigraw):  
-Fingerprint: D4D0D3202FC06849A257B38DE94618334C674B40  
-64-bit: E946 1833 4C67 4B40
-
-## Credit
-
-![Yourkit](https://www.yourkit.com/images/yklogo.png)
-
-Sparrow Wallet uses the [Yourkit Java Profiler](https://www.yourkit.com/java/profiler/) to profile and improve performance. 
-YourKit supports open source projects with useful tools for monitoring and profiling Java and .NET applications.
+Distribution images include these notices in the bundled runtime's `legal/puritywallet` directory. Dependencies retain their own licenses. Internal Java package names, wallet-file magic and hardware-wallet menu names remain compatible with upstream.

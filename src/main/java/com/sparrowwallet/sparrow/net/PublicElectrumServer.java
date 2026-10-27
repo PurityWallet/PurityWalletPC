@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.google.common.net.HostAndPort;
@@ -10,19 +11,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public enum PublicElectrumServer {
-    BLOCKSTREAM_INFO("blockstream.info", "ssl://blockstream.info:700", Network.MAINNET),
-    ELECTRUM_BLOCKSTREAM_INFO("electrum.blockstream.info", "ssl://electrum.blockstream.info:50002", Network.MAINNET),
-    LUKECHILDS_CO("bitcoin.lu.ke", "ssl://bitcoin.lu.ke:50002", Network.MAINNET),
-    EMZY_DE("electrum.emzy.de", "ssl://electrum.emzy.de:50002", Network.MAINNET),
-    BITAROO_NET("electrum.bitaroo.net", "ssl://electrum.bitaroo.net:50002", Network.MAINNET),
-    DIYNODES_COM("electrum.diynodes.com", "ssl://electrum.diynodes.com:50022", Network.MAINNET),
-    SETHFORPRIVACY_COM("fulcrum.sethforprivacy.com", "ssl://fulcrum.sethforprivacy.com:50002", Network.MAINNET),
-    TESTNET_ARANGUREN_ORG("testnet.aranguren.org", "ssl://testnet.aranguren.org:51002", Network.TESTNET),
-    TESTNET_QTORNADO_COM("testnet.qtornado.com", "ssl://testnet.qtornado.com:51002", Network.TESTNET),
-    SIGNET_MEMPOOL_SPACE("mempool.space", "ssl://mempool.space:60602", Network.SIGNET),
-    TESTNET4_MEMPOOL_SPACE("mempool.space", "ssl://mempool.space:40002", Network.TESTNET4),
-    TESTNET4_C3_SOFT("blackie.c3-soft.com", "ssl://blackie.c3-soft.com:57010", Network.TESTNET4),
-    FRIGATE_2140_DEV("frigate.2140.dev", "ssl://frigate.2140.dev:50002", Network.MAINNET, List.of(PolicyType.SINGLE_HD, PolicyType.MULTI_HD, PolicyType.SINGLE_SP));
+    PURITY_MAINNET("Bitcoin Purity", "ssl://electrum.bitcoinpurity.org:50002", Network.MAINNET);
 
     PublicElectrumServer(String name, String url, Network network) {
         this(name, url, network, List.of(PolicyType.SINGLE_HD, PolicyType.MULTI_HD));
@@ -34,7 +23,7 @@ public enum PublicElectrumServer {
         this.supportedPolicyTypes = supportedPolicyTypes;
     }
 
-    public static final List<Network> SUPPORTED_NETWORKS = List.of(Network.MAINNET, Network.TESTNET, Network.SIGNET, Network.TESTNET4);
+    public static final List<Network> SUPPORTED_NETWORKS = List.of(Network.MAINNET);
 
     private final Server server;
     private final Network network;

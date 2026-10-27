@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow;
 
 import com.sparrowwallet.sparrow.control.DialogImage;
@@ -40,7 +41,7 @@ public class AboutController {
         stage.close();
     }
 
-    public void openDonate(ActionEvent event) {
-        AppServices.get().getApplication().getHostServices().showDocument("https://sparrowwallet.com/donate");
+    public void openWebsite(ActionEvent event) {
+        AppServices.get().getApplication().getHostServices().showDocument("https://bitcoininstitute.com/PurityWalletPC");
     }
 }

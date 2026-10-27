@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 
 <?import java.lang.*?>
 <?import java.util.*?>
@@ -36,8 +37,6 @@
                         <FXCollections fx:factory="observableArrayList">
                             <FeeRatesSource fx:constant="ELECTRUM_SERVER" />
                             <FeeRatesSource fx:constant="MEMPOOL_SPACE" />
-                            <FeeRatesSource fx:constant="BITVIEW_SPACE" />
-                            <FeeRatesSource fx:constant="BLOCK_XYZ" />
                             <FeeRatesSource fx:constant="MINIMUM" />
                         </FXCollections>
                     </items>
@@ -58,9 +57,6 @@
                     <items>
                         <FXCollections fx:factory="observableArrayList">
                             <ExchangeSource fx:constant="NONE" />
-                            <ExchangeSource fx:constant="COINBASE" />
-                            <ExchangeSource fx:constant="COINGECKO" />
-                            <ExchangeSource fx:constant="MEMPOOL_SPACE" />
                         </FXCollections>
                     </items>
                 </ComboBox>
@@ -98,7 +94,7 @@
             </Field>
             <Field text="Software updates:">
                 <UnlabeledToggleSwitch fx:id="checkNewVersions" />
-                <HelpLabel helpText="Check for updates to Sparrow?"/>
+                <HelpLabel helpText="Check for updates to PurityWallet?"/>
             </Field>
         </Fieldset>
     </Form>

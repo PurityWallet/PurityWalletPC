@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.sparrowwallet.drongo.wallet.*;
@@ -186,7 +187,7 @@ public class WalletIcon extends StackPane {
                 }
 
                 private static InputStream getFallbackIconStream() {
-                    return WalletIconStreamHandler.class.getResourceAsStream("/image/sparrow.png");
+                    return WalletIconStreamHandler.class.getResourceAsStream("/image/puritywallet-logo.png");
                 }
             };
         }

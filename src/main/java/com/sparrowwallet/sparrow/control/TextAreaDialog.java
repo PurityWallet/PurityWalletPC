@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.sparrowwallet.drongo.Utils;
@@ -44,7 +45,7 @@ public class TextAreaDialog extends Dialog<String> {
         final DialogPane dialogPane = new TextAreaDialogPane();
         setDialogPane(dialogPane);
 
-        dialogPane.setGraphic(new DialogImage(DialogImage.Type.SPARROW));
+        dialogPane.setGraphic(new DialogImage(DialogImage.Type.PURITYWALLET));
 
         HBox hbox = new HBox();
         this.textArea = new TextArea(defaultValue);
