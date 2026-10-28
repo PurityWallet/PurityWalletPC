@@ -1,11 +1,10 @@
-## Sparrow Wallet Repository Docs
+# PurityWallet repository documentation
 
-Note that most documentation for the project can be found at https://sparrowwallet.com/docs/. 
-The documentation here is mainly developer-related resources.
+- [Requirement intake](../input/requirements.md)
+- [Product specification](requirements/product-spec.md)
+- [Architecture](architecture/purity-adaptation.md)
+- [API and compatibility](api/compatibility.md)
+- [Migration and verification results](migration-report.md)
+- [Task index](tasks/README.md)
 
-### [Reproducible builds](reproducible.md)
-
-Documentation to create and verify a build of the project against the released binaries.
-
-
-
+The [reproducible build notes](reproducible.md) describe upstream tooling; they are not evidence of a signed or published PurityWallet release.

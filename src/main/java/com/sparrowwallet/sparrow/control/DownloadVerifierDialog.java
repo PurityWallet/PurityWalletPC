@@ -135,8 +135,8 @@ public class DownloadVerifierDialog extends Dialog<ButtonBar.ButtonData> {
         releaseVerifiedField.getInputs().add(releaseLink);
         releaseLink.setOnAction(event -> {
             if(release.get() != null && release.get().exists()) {
-                if(release.get().getName().toLowerCase(Locale.ROOT).startsWith("sparrow")) {
-                    Optional<ButtonType> optType = AppServices.showAlertDialog("Exit Sparrow?", "Sparrow must be closed before installation. Exit?", Alert.AlertType.CONFIRMATION, ButtonType.NO, ButtonType.YES);
+                if(release.get().getName().toLowerCase(Locale.ROOT).startsWith("puritywallet") || release.get().getName().toLowerCase(Locale.ROOT).startsWith("sparrow")) {
+                    Optional<ButtonType> optType = AppServices.showAlertDialog("Exit PurityWallet?", "PurityWallet must be closed before installation. Exit?", Alert.AlertType.CONFIRMATION, ButtonType.NO, ButtonType.YES);
                     if(optType.isPresent() && optType.get() == ButtonType.YES) {
                         javafx.application.Platform.exit();
                         AppServices.get().getApplication().getHostServices().showDocument("file://" + release.get().getAbsolutePath());
@@ -613,10 +613,10 @@ public class DownloadVerifierDialog extends Dialog<ButtonBar.ButtonData> {
         String arch = System.getProperty("os.arch");
         switch(osType) {
             case MACOS -> {
-                return "Sparrow-" + version + "-" + arch;
+                return "PurityWallet-" + version + "-" + arch;
             }
             case WINDOWS -> {
-                return "Sparrow-" + version;
+                return "PurityWallet-" + version;
             }
             default ->  {
                 return "sparrow_" + version + "-1_" + (arch.equals("aarch64") ? "arm64" : arch);

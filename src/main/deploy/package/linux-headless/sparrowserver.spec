@@ -1,4 +1,4 @@
-Summary: Sparrow Server
+Summary: PurityWallet Server
 Name: sparrowserver
 Version: ${version}
 Release: 1
@@ -6,7 +6,7 @@ License: ASL 2.0
 Vendor: Unknown
 
 %if "x" != "x"
-URL: https://sparrowwallet.com
+URL: https://github.com/PurityWallet/PurityWalletPC
 %endif
 
 %if "x/opt" != "x"
@@ -38,7 +38,7 @@ Autoreq: 0
 %define default_filesystem / /opt /usr /usr/bin /usr/lib /usr/local /usr/local/bin /usr/local/lib
 
 %description
-Sparrow Server
+PurityWallet Server
 
 %global __os_install_post %{nil}
 

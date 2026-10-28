@@ -5,6 +5,8 @@ import javafx.beans.NamedArg;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.layout.StackPane;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.girod.javafx.svgimage.SVGImage;
 import org.girod.javafx.svgimage.SVGLoader;
 import org.slf4j.Logger;
@@ -40,6 +42,15 @@ public class DialogImage extends StackPane {
     }
 
     protected void refresh(Type type) {
+        if(type == Type.SPARROW) {
+            ImageView image = new ImageView(new Image(AppServices.class.getResourceAsStream("/image/sparrow.png")));
+            image.setFitWidth(WIDTH);
+            image.setFitHeight(HEIGHT);
+            image.setPreserveRatio(true);
+            getChildren().setAll(image);
+            return;
+        }
+
         SVGImage svgImage;
         if(AppServices.isDarkTheme()) {
             svgImage = loadSVGImage("/image/dialog/" + type.name().toLowerCase(Locale.ROOT) + "-invert.svg");

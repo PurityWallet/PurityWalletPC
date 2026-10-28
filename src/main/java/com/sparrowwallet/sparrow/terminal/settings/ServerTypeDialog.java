@@ -5,6 +5,7 @@ import com.googlecode.lanterna.gui2.*;
 import com.googlecode.lanterna.gui2.dialogs.DialogWindow;
 import com.sparrowwallet.sparrow.io.Config;
 import com.sparrowwallet.sparrow.net.ServerType;
+import com.sparrowwallet.sparrow.net.PublicElectrumServer;
 import com.sparrowwallet.sparrow.terminal.SparrowTerminal;
 
 import java.util.List;
@@ -20,7 +21,9 @@ public class ServerTypeDialog extends DialogWindow {
         Panel mainPanel = new Panel();
         mainPanel.setLayoutManager(new GridLayout(2).setHorizontalSpacing(5));
 
-        ServerType[] serverTypes = new ServerType[] { ServerType.PUBLIC_ELECTRUM_SERVER, ServerType.BITCOIN_CORE, ServerType.ELECTRUM_SERVER };
+        ServerType[] serverTypes = PublicElectrumServer.supportedNetwork()
+                ? new ServerType[] { ServerType.PUBLIC_ELECTRUM_SERVER, ServerType.BITCOIN_CORE, ServerType.ELECTRUM_SERVER }
+                : new ServerType[] { ServerType.BITCOIN_CORE, ServerType.ELECTRUM_SERVER };
 
         mainPanel.addComponent(new Label("Connect using"));
         type = new RadioBoxList<>();
@@ -28,8 +31,8 @@ public class ServerTypeDialog extends DialogWindow {
             type.addItem(serverType.getName());
         }
 
-        if(Config.get().getServerType() == null) {
-            Config.get().setServerType(ServerType.PUBLIC_ELECTRUM_SERVER);
+        if(Config.get().getServerType() == null || (!PublicElectrumServer.supportedNetwork() && Config.get().getServerType() == ServerType.PUBLIC_ELECTRUM_SERVER)) {
+            Config.get().setServerType(serverTypes[0]);
         }
         type.setCheckedItem(Config.get().getServerType().getName());
         type.addListener((selectedIndex, previousSelection) -> {

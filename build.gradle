@@ -131,7 +131,20 @@ test {
         excludeTags 'checkpoint'
     }
     jvmArgs = ["--enable-native-access=ALL-UNNAMED"]
+    exclude '**/PurityDesktopTest.class'
     systemProperty 'sparrow.home', layout.buildDirectory.dir('test-home').get().asFile.absolutePath
+}
+
+tasks.register('desktopTest', Test) {
+    description = 'Runs Purity desktop rendering and donation interaction checks in an isolated JVM'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/PurityDesktopTest.class'
+    useJUnitPlatform()
+    jvmArgs = ["--enable-native-access=ALL-UNNAMED"]
+    systemProperty 'purity.ui.tests', 'true'
+    systemProperty 'sparrow.home', layout.buildDirectory.dir('desktop-test-home').get().asFile.absolutePath
 }
 
 tasks.register('verifyCheckpoint', Test) {
@@ -180,7 +193,7 @@ application {
                                  "--add-reads=org.flywaydb.core=java.desktop"]
 
     if(os.macOsX) {
-        applicationDefaultJvmArgs += ["-Dprism.lcdtext=false", "-Xdock:name=Sparrow"]
+        applicationDefaultJvmArgs += ["-Dprism.lcdtext=false", "-Xdock:name=PurityWallet"]
     }
     if(headless) {
         applicationDefaultJvmArgs += ["-Dglass.platform=Headless"]
@@ -233,7 +246,7 @@ jlink {
                    'glob:/io.github.doblon8.jzbar/native/**,' +
                    'glob:/io.github.doblon8.openpnp.capture/native/**']
     launcher {
-        name = 'sparrow'
+        name = 'PurityWallet'
         jvmArgs = ["--enable-native-access=com.sparrowwallet.drongo",
                    "--enable-native-access=com.sun.jna",
                    "--enable-native-access=javafx.graphics",
@@ -285,14 +298,14 @@ jlink {
     }
     addExtraDependencies("javafx")
     jpackage {
-        imageName = "Sparrow"
-        installerName = "Sparrow"
+        imageName = "PurityWallet"
+        installerName = "PurityWallet"
         appVersion = "${version}"
         skipInstaller = os.macOsX || skipInstallers
         imageOptions = []
         installerOptions = ['--file-associations', 'src/main/deploy/psbt.properties', '--file-associations', 'src/main/deploy/txn.properties', '--file-associations', 'src/main/deploy/asc.properties', '--license-file', 'LICENSE']
         if(os.windows) {
-            installerOptions.addAll(['--win-per-user-install', '--win-menu', '--win-menu-group', 'Sparrow', '--win-shortcut', '--resource-dir', 'src/main/deploy/package/windows/'])
+            installerOptions.addAll(['--win-per-user-install', '--win-menu', '--win-menu-group', 'PurityWallet', '--install-dir', 'Sparrow', '--win-shortcut', '--resource-dir', 'src/main/deploy/package/windows/'])
             imageOptions.addAll(['--icon', 'src/main/deploy/package/windows/sparrow.ico'])
             installerType = "msi"
         }
@@ -302,13 +315,13 @@ jlink {
                 installerOptions = ['--license-file', 'LICENSE']
             } else {
                 installerName = "sparrowwallet"
-                installerOptions.addAll(['--linux-shortcut', '--linux-menu-group', 'Sparrow'])
+                installerOptions.addAll(['--linux-shortcut', '--linux-menu-group', 'PurityWallet'])
             }
             installerOptions.addAll(['--resource-dir', layout.buildDirectory.dir('deploy/package').get().asFile.toString(), '--linux-app-category', 'utils', '--linux-app-release', '1', '--linux-rpm-license-type', 'ASL 2.0', '--linux-deb-maintainer', 'mail@sparrowwallet.com'])
             imageOptions.addAll(['--icon', 'src/main/deploy/package/linux/Sparrow.png', '--resource-dir', 'src/main/deploy/package/linux/'])
         }
         if(os.macOsX) {
-            installerOptions.addAll(['--mac-sign', '--mac-signing-key-user-name', 'Craig Raw (UPLVMSK9D7)'])
+            installerOptions.addAll(['--mac-package-identifier', 'com.sparrowwallet.sparrow'])
             imageOptions.addAll(['--icon', 'src/main/deploy/package/macos/sparrow.icns', '--resource-dir', 'src/main/deploy/package/macos/'])
             installerType = "dmg"
         }
@@ -328,10 +341,10 @@ if(os.macOsX) {
 // Give the launcher a Sparrow LC_UUID, since the stock jpackage launcher shares its Mach-O UUID with every app packaged by the same JDK
 tasks.register('patchLauncherUuid') {
     dependsOn tasks.jpackageImage
-    def appDir = layout.buildDirectory.dir('jpackage/Sparrow.app').get().asFile
+    def appDir = layout.buildDirectory.dir('jpackage/PurityWallet.app').get().asFile
     def launcherUuid = UUID.nameUUIDFromBytes("com.sparrowwallet.sparrow.${osArch}".getBytes('UTF-8'))
     doLast {
-        def launcher = new File(appDir, 'Contents/MacOS/Sparrow')
+        def launcher = new File(appDir, 'Contents/MacOS/PurityWallet')
         byte[] bytes = launcher.bytes
         def buffer = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         if(Integer.toUnsignedLong(buffer.getInt(0)) != 0xfeedfacfL) {
@@ -398,7 +411,7 @@ tasks.register('prepareResourceDir', Copy) {
         if(file.name.equals('control') || file.name.endsWith('.spec')) {
             filter { line ->
                 if(line.contains('${size}')) {
-                    line = line.replace('${size}', getDirectorySize(layout.buildDirectory.dir('jpackage/Sparrow').get().asFile))
+                    line = line.replace('${size}', getDirectorySize(layout.buildDirectory.dir('jpackage/PurityWallet').get().asFile))
                 }
                 return line.replace('${version}', "${version}").replace('${arch}', osArch == 'aarch64' ? 'arm64' : 'amd64')
             }
@@ -409,8 +422,8 @@ tasks.register('prepareResourceDir', Copy) {
 tasks.register('copyMimeInfo', Copy) {
     mustRunAfter tasks.jpackageImage
     from('src/main/deploy/package/linux')
-    into(layout.buildDirectory.dir('jpackage/Sparrow/lib'))
-    include('sparrowwallet-Sparrow-MimeInfo.xml')
+    into(layout.buildDirectory.dir('jpackage/PurityWallet/lib'))
+    include('sparrowwallet-PurityWallet-MimeInfo.xml')
 }
 
 static def getDirectorySize(File directory) {
@@ -428,16 +441,16 @@ static def getDirectorySize(File directory) {
 }
 
 tasks.register('removeGroupWritePermission', Exec) {
-    commandLine 'chmod', '-R', 'g-w', "$buildDir/jpackage/Sparrow"
+    commandLine 'chmod', '-R', 'g-w', "$buildDir/jpackage/PurityWallet"
 }
 
 tasks.register('packageZipDistribution', Zip) {
-    archiveFileName = "Sparrow-${version}.zip"
+    archiveFileName = "PurityWallet-${version}.zip"
     destinationDirectory = file("$buildDir/jpackage")
     preserveFileTimestamps = os.macOsX
     from("$buildDir/jpackage/") {
-        include "Sparrow/**"
-        include "Sparrow.app/**"
+        include "PurityWallet/**"
+        include "PurityWallet.app/**"
     }
 }
 
@@ -447,7 +460,7 @@ tasks.register('packageTarDistribution', Tar) {
     destinationDirectory = file("$buildDir/jpackage")
     compression = Compression.GZIP
     from("$buildDir/jpackage/") {
-        include "Sparrow/**"
+        include "PurityWallet/**"
     }
 }
 

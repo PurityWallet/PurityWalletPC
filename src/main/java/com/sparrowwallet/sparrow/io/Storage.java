@@ -600,15 +600,15 @@ public class Storage {
     }
 
     public static File getConfigHome() {
-        return ApplicationDir.CONFIG.get(SparrowWallet.APP_NAME);
+        return ApplicationDir.CONFIG.get(SparrowWallet.STORAGE_NAME);
     }
 
     public static File getDataHome() {
-        return ApplicationDir.DATA.get(SparrowWallet.APP_NAME);
+        return ApplicationDir.DATA.get(SparrowWallet.STORAGE_NAME);
     }
 
     public static File getCacheHome() {
-        return ApplicationDir.CACHE.get(SparrowWallet.APP_NAME);
+        return ApplicationDir.CACHE.get(SparrowWallet.STORAGE_NAME);
     }
 
     public static File getStateHome() {
@@ -616,7 +616,7 @@ public class Storage {
     }
 
     public static File getStateHome(boolean useDefault) {
-        return ApplicationDir.STATE.get(SparrowWallet.APP_NAME, useDefault);
+        return ApplicationDir.STATE.get(SparrowWallet.STORAGE_NAME, useDefault);
     }
 
     /**
@@ -625,7 +625,7 @@ public class Storage {
      * Provides a fixed location that does not move as categories are migrated, and is where earlier versions wrote all of their files.
      */
     public static File getDefaultHome() {
-        return ApplicationDir.getDefaultDir(SparrowWallet.APP_NAME);
+        return ApplicationDir.getDefaultDir(SparrowWallet.STORAGE_NAME);
     }
 
     /**
@@ -683,7 +683,7 @@ public class Storage {
      * Logs the application directories in use where they do not all resolve to the default application directory.
      */
     public static void logApplicationDirs() {
-        List<ApplicationDir> xdgDirs = Arrays.stream(ApplicationDir.values()).filter(applicationDir -> applicationDir.isXdg(SparrowWallet.APP_NAME)).toList();
+        List<ApplicationDir> xdgDirs = Arrays.stream(ApplicationDir.values()).filter(applicationDir -> applicationDir.isXdg(SparrowWallet.STORAGE_NAME)).toList();
         if(!xdgDirs.isEmpty() && log.isInfoEnabled()) {
             log.info("Using XDG base directories for " + xdgDirs.stream().map(applicationDir -> applicationDir.toString().toLowerCase(Locale.ROOT)).collect(Collectors.joining(", ")) +
                     " (config: " + getConfigHome() + ", data: " + getDataHome() + ", cache: " + getCacheHome() + ", state: " + getStateHome() + ")");

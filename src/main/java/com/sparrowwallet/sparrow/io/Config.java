@@ -34,17 +34,17 @@ public class Config {
     private BitcoinUnit bitcoinUnit;
     private UnitFormat unitFormat;
     private Server blockExplorer;
-    private FeeRatesSource feeRatesSource;
+    private FeeRatesSource feeRatesSource = FeeRatesSource.ELECTRUM_SERVER;
     private FeeRatesSelection feeRatesSelection;
     private OptimizationStrategy sendOptimizationStrategy;
     private Currency fiatCurrency;
-    private ExchangeSource exchangeSource;
+    private ExchangeSource exchangeSource = ExchangeSource.NONE;
     private boolean loadRecentWallets = true;
     private boolean validateDerivationPaths = true;
     private boolean groupByAddress = true;
     private boolean includeMempoolOutputs = true;
     private boolean notifyNewTransactions = true;
-    private boolean checkNewVersions = true;
+    private boolean checkNewVersions = false;
     private Theme theme;
     private boolean openWalletsInNewWindows = false;
     private boolean chunkAddresses = true;
@@ -100,7 +100,7 @@ public class Config {
 
     private static Config INSTANCE;
 
-    private static Gson getGson() {
+    static Gson getGson() {
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeAdapter(File.class, new FileSerializer());
         gsonBuilder.registerTypeAdapter(File.class, new FileDeserializer());
@@ -174,7 +174,7 @@ public class Config {
     }
 
     public Server getBlockExplorer() {
-        return blockExplorer;
+        return blockExplorer == null ? BlockExplorer.PURITY_MEMPOOL.getServer() : blockExplorer;
     }
 
     public void setBlockExplorer(Server blockExplorer) {
@@ -183,7 +183,7 @@ public class Config {
     }
 
     public FeeRatesSource getFeeRatesSource() {
-        return feeRatesSource;
+        return FeeRatesSource.ELECTRUM_SERVER;
     }
 
     public void setFeeRatesSource(FeeRatesSource feeRatesSource) {
@@ -223,7 +223,7 @@ public class Config {
     }
 
     public ExchangeSource getExchangeSource() {
-        return exchangeSource;
+        return ExchangeSource.NONE;
     }
 
     public void setExchangeSource(ExchangeSource exchangeSource) {
@@ -277,7 +277,7 @@ public class Config {
     }
 
     public boolean isCheckNewVersions() {
-        return checkNewVersions;
+        return false;
     }
 
     public void setCheckNewVersions(boolean checkNewVersions) {
@@ -531,7 +531,16 @@ public class Config {
     }
 
     public ServerType getServerType() {
-        return serverType;
+        if(serverType != null) {
+            return serverType;
+        }
+        if(coreServer != null) {
+            return ServerType.BITCOIN_CORE;
+        }
+        if(electrumServer != null) {
+            return ServerType.ELECTRUM_SERVER;
+        }
+        return PublicElectrumServer.supportedNetwork() ? ServerType.PUBLIC_ELECTRUM_SERVER : null;
     }
 
     public void setServerType(ServerType serverType) {
@@ -568,7 +577,7 @@ public class Config {
     }
 
     public Server getPublicElectrumServer() {
-        return publicElectrumServer;
+        return PublicElectrumServer.getServers().isEmpty() ? null : PublicElectrumServer.getServers().getFirst().getServer();
     }
 
     public void setPublicElectrumServer(Server publicElectrumServer) {

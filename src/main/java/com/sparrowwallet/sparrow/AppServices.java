@@ -6,6 +6,7 @@ import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.OsType;
 import com.sparrowwallet.drongo.SecureString;
 import com.sparrowwallet.drongo.address.Address;
+import com.sparrowwallet.drongo.address.InvalidAddressException;
 import com.sparrowwallet.drongo.bip47.PaymentCode;
 import com.sparrowwallet.drongo.crypto.ECKey;
 import com.sparrowwallet.drongo.crypto.EncryptionType;
@@ -90,7 +91,8 @@ public class AppServices {
     private static final int CONNECTION_DELAY_SECS = 2;
     private static final int RATES_DELAY_SECS_DEFAULT = 2;
     private static final int RATES_DELAY_SECS_WINDOWS = 5;
-    private static final ExchangeSource DEFAULT_EXCHANGE_SOURCE = ExchangeSource.COINGECKO;
+    private static final ExchangeSource DEFAULT_EXCHANGE_SOURCE = ExchangeSource.NONE;
+    public static final String PURITY_WALLET_DONATION_ADDRESS = "REPLACE_WITH_PURITYWALLET_DONATION_ADDRESS";
     private static final Currency DEFAULT_FIAT_CURRENCY = Currency.getInstance("USD");
     private static final String TOR_DEFAULT_PROXY_CIRCUIT_ID = "default";
 
@@ -623,7 +625,7 @@ public class AppServices {
             Scene scene = new Scene(root);
             scene.getStylesheets().add(AppServices.class.getResource("app.css").toExternalForm());
 
-            stage.setTitle("Sparrow");
+            stage.setTitle("PurityWallet");
             stage.setMinWidth(650);
             stage.setMinHeight(708);
             stage.setScene(scene);
@@ -1047,7 +1049,7 @@ public class AppServices {
             return;
         }
 
-        Server blockExplorer = Config.get().getBlockExplorer() == null ? BlockExplorer.MEMPOOL_SPACE.getServer() : Config.get().getBlockExplorer();
+        Server blockExplorer = Config.get().getBlockExplorer();
         String url = blockExplorer.getUrl();
         if(url.contains("{0}")) {
             url = url.replace("{0}", txid);
@@ -1160,12 +1162,39 @@ public class AppServices {
         }
     }
 
+    public static void openDonation() {
+        openDonation(PURITY_WALLET_DONATION_ADDRESS);
+    }
+
+    static void openDonation(String recipient) {
+        BitcoinURI bitcoinURI;
+        try {
+            bitcoinURI = donationURI(recipient);
+        } catch(InvalidAddressException e) {
+            showErrorDialog("Donation unavailable", "The PurityWallet donation address has not been configured.");
+            return;
+        }
+
+        openBitcoinUri(bitcoinURI, true);
+    }
+
+    static BitcoinURI donationURI(String recipient) throws InvalidAddressException {
+        return BitcoinURI.fromAddress(Address.fromString(recipient));
+    }
+
     private static void openBitcoinUri(URI uri) {
         try {
-            BitcoinURI bitcoinURI = new BitcoinURI(uri.toString());
+            openBitcoinUri(new BitcoinURI(uri.toString()), false);
+        } catch(Exception e) {
+            showErrorDialog("Not a valid bitcoin URI", e.getMessage());
+        }
+    }
+
+    private static void openBitcoinUri(BitcoinURI bitcoinURI, boolean alwaysAsk) {
+        try {
             List<PolicyType> policyTypes = Arrays.asList(PolicyType.values());
             List<ScriptType> scriptTypes = Arrays.asList(ScriptType.ADDRESSABLE_TYPES);
-            Wallet wallet = selectWallet(policyTypes, scriptTypes, true, false, "pay from", false);
+            Wallet wallet = selectWallet(policyTypes, scriptTypes, true, false, "pay from", alwaysAsk);
 
             if(wallet != null) {
                 final Wallet sendingWallet = wallet;
@@ -1369,7 +1398,6 @@ public class AppServices {
         Config.get().addRecentServer();
 
         FeeRatesSource feeRatesSource = Config.get().getFeeRatesSource();
-        feeRatesSource = (feeRatesSource == null ? FeeRatesSource.MEMPOOL_SPACE : feeRatesSource);
         if(feeRatesSource.supportsNetwork(Network.get()) && feeRatesSource.isExternal()) {
             fetchFeeRates();
         }
@@ -1428,7 +1456,7 @@ public class AppServices {
         if(ratesService != null) {
             ratesService.cancel();
 
-            if(Config.get().getMode() != Mode.OFFLINE && event.getExchangeSource() != ExchangeSource.NONE) {
+            if(Config.get().getMode() != Mode.OFFLINE && Config.get().isFetchRates() && event.getExchangeSource() != ExchangeSource.NONE) {
                 ratesService = createRatesService(event.getExchangeSource(), event.getCurrency());
                 ratesService.start();
             }
@@ -1444,7 +1472,7 @@ public class AppServices {
     public void versionCheckStatus(VersionCheckStatusEvent event) {
         versionCheckService.cancel();
 
-        if(Config.get().getMode() != Mode.OFFLINE && event.isEnabled() && Network.get() == Network.MAINNET) {
+        if(Config.get().getMode() != Mode.OFFLINE && Config.get().isCheckNewVersions() && event.isEnabled() && Network.get() == Network.MAINNET) {
             versionCheckService = createVersionCheckService();
             versionCheckService.start();
         }

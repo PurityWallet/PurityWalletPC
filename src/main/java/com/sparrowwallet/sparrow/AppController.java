@@ -276,7 +276,7 @@ public class AppController implements Initializable {
             closeTab.setDisable(tabs.getTabs().isEmpty());
             if(tabs.getTabs().isEmpty()) {
                 Stage tabStage = (Stage) tabs.getScene().getWindow();
-                tabStage.setTitle("Sparrow");
+                tabStage.setTitle("PurityWallet");
                 saveTransaction.setVisible(true);
                 saveTransaction.setDisable(true);
                 exportWallet.setDisable(true);
@@ -520,8 +520,12 @@ public class AppController implements Initializable {
         }
     }
 
+    public void showReleases(ActionEvent event) {
+        AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/releases");
+    }
+
     public void showDocumentation(ActionEvent event) {
-        AppServices.get().getApplication().getHostServices().showDocument("https://sparrowwallet.com/docs");
+        AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC#readme");
     }
 
     public void showLogFile(ActionEvent event) throws IOException {
@@ -534,17 +538,17 @@ public class AppController implements Initializable {
     }
 
     public void openSupport(ActionEvent event) {
-        AppServices.get().getApplication().getHostServices().showDocument("https://sparrowwallet.com/opensupport");
+        AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/issues");
     }
 
     public void submitBugReport(ActionEvent event) {
         ButtonType supportType = new ButtonType("Get Support", ButtonBar.ButtonData.LEFT);
         ButtonType bugType = new ButtonType("Submit Bug Report", ButtonBar.ButtonData.YES);
-        Optional<ButtonType> optResponse = showWarningDialog("Submit Bug Report", "Please note that this facility is for bug reports and feature requests only. There is a community of Sparrow users who can assist with support requests.", supportType, bugType);
+        Optional<ButtonType> optResponse = showWarningDialog("Submit Bug Report", "Please note that this facility is for bug reports and feature requests only. There is a community of PurityWallet users who can assist with support requests.", supportType, bugType);
 
         if(optResponse.isPresent()) {
             if(optResponse.get() == bugType) {
-                AppServices.get().getApplication().getHostServices().showDocument("https://sparrowwallet.com/submitbugreport");
+                AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/issues");
             } else {
                 openSupport(event);
             }
@@ -600,8 +604,8 @@ public class AppController implements Initializable {
                 sudo usermod -aG plugdev `whoami`
                 """;
         String home = System.getProperty(SparrowWallet.JPACKAGE_APP_PATH);
-        if(home != null && !home.startsWith("/opt/sparrowwallet") && home.endsWith("bin/Sparrow")) {
-            home = home.replace("bin/Sparrow", "");
+        if(home != null && !home.startsWith("/opt/sparrowwallet") && home.endsWith("bin/PurityWallet")) {
+            home = home.replace("bin/PurityWallet", "");
             commands = commands.replace("/opt/sparrowwallet/", home);
         }
 
@@ -1055,7 +1059,7 @@ public class AppController implements Initializable {
 
         Stage window = new Stage();
         DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setTitle("Choose Sparrow Home Folder");
+        directoryChooser.setTitle("Choose PurityWallet Home Folder");
         directoryChooser.setInitialDirectory(initialDir == null || !initialDir.exists() ? Storage.getDefaultHome() : initialDir);
         File newHome = directoryChooser.showDialog(window);
 
@@ -1180,7 +1184,7 @@ public class AppController implements Initializable {
             }
             if(!sameDir) {
                 ConfirmationAlert alert = new ConfirmationAlert("Change wallets directory?",
-                    "Do you want to configure Sparrow to use " + selectedDir + " as the default wallets directory?", ButtonType.NO, ButtonType.YES);
+                    "Do you want to configure PurityWallet to use " + selectedDir + " as the default wallets directory?", ButtonType.NO, ButtonType.YES);
                 Optional<ButtonType> optType = alert.showAndWait();
                 if(optType.isPresent() && optType.get() == ButtonType.YES) {
                     Config.get().setWalletsDir(selectedDir);
@@ -2296,7 +2300,7 @@ public class AppController implements Initializable {
         String outputDesc = unknownScriptOutputs.size() == 1 ? "an output" : unknownScriptOutputs.size() + " outputs";
         Optional<ButtonType> result = AppServices.showWarningDialog("Unknown Script Type",
                 "This transaction contains " + outputDesc + " of a non-standard or unrecognised script type, totalling " + amount + ".\n\n" +
-                        "Sparrow cannot resolve these outputs to addresses, so they will not appear in the transaction diagram. " +
+                        "PurityWallet cannot resolve these outputs to addresses, so they will not appear in the transaction diagram. " +
                         "Review the individual output(s) in the transaction tree carefully before signing or broadcasting.\n\n" +
                         "Open the transaction?", ButtonType.YES, ButtonType.NO);
         return result.isPresent() && result.get() == ButtonType.YES;
@@ -2791,7 +2795,7 @@ public class AppController implements Initializable {
             String tabName = event.getTabName();
             if(tabs.getScene() != null) {
                 Stage tabStage = (Stage)tabs.getScene().getWindow();
-                tabStage.setTitle("Sparrow - " + tabName);
+                tabStage.setTitle("PurityWallet - " + tabName);
             }
 
             if(event instanceof TransactionTabSelectedEvent) {
@@ -2942,12 +2946,12 @@ public class AppController implements Initializable {
                 }
 
                 Notifications notificationBuilder = Notifications.create()
-                        .title("Sparrow - " + walletName)
+                        .title("PurityWallet - " + walletName)
                         .text(text)
                         .graphic(new DialogImage(DialogImage.Type.SPARROW))
                         .hideAfter(Duration.seconds(15))
                         .position(Pos.TOP_RIGHT)
-                        .threshold(5, Notifications.create().title("Sparrow").text("Multiple new wallet transactions").graphic(new DialogImage(DialogImage.Type.SPARROW)))
+                        .threshold(5, Notifications.create().title("PurityWallet").text("Multiple new wallet transactions").graphic(new DialogImage(DialogImage.Type.SPARROW)))
                         .onAction(e -> selectTab(event.getWallet()));
 
                 //If controlsfx can't find our window, we must set the window ourselves (unfortunately notification is then shown within this window)
@@ -2980,10 +2984,10 @@ public class AppController implements Initializable {
 
     @Subscribe
     public void versionUpdated(VersionUpdatedEvent event) {
-        Hyperlink versionUpdateLabel = new Hyperlink("Sparrow " + event.getVersion() + " available");
+        Hyperlink versionUpdateLabel = new Hyperlink("PurityWallet " + event.getVersion() + " available");
         versionUpdateLabel.getStyleClass().add("version-hyperlink");
         versionUpdateLabel.setOnAction(event1 -> {
-            AppServices.get().getApplication().getHostServices().showDocument("https://www.sparrowwallet.com/download");
+            AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/releases");
         });
 
         Hyperlink existingUpdateLabel = null;

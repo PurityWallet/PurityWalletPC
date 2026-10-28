@@ -859,7 +859,7 @@ public class ServerSettingsController extends SettingsDetailController {
             } else if(Storage.getCertificateFile(coreServer.getHost()) == null) {
                 warning.append("\nThe certificate presented by the node on the first connection will be trusted and required on all connections thereafter.\n");
             }
-            warning.append("\nConnecting to the Bitcoin Core RPC interface over an untrusted network is not recommended by either Sparrow or Bitcoin Core. ");
+            warning.append("\nConnecting to the Bitcoin Core RPC interface over an untrusted network is not recommended by either PurityWallet or Bitcoin Core. ");
             warning.append("Consider using a node on this computer or your local network, connecting over a Tor onion address, or tunnelling to it over a VPN or SSH.");
 
             AppServices.showWarningDialog("Remote Bitcoin Core node", warning.toString());

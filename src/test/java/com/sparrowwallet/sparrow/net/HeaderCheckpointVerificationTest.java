@@ -76,6 +76,7 @@ public class HeaderCheckpointVerificationTest {
         Network.set(network);
 
         HeaderCheckpoints checkpoints = network.getHeaderCheckpoints();
+        org.junit.jupiter.api.Assumptions.assumeTrue(PublicElectrumServer.supportedNetwork(), "No bundled public peers for " + network);
         List<PublicElectrumServer> servers = PublicElectrumServer.getServers();
         assertTrue(!servers.isEmpty(), "No public servers configured for " + network);
 
