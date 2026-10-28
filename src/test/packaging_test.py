@@ -36,6 +36,32 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("actions/upload-artifact@", workflow)
         self.assertNotIn("matrix:", workflow)
 
+    def test_windows_validation_runs_for_pr_updates(self):
+        workflow = (ROOT / ".github/workflows/windows-package.yaml").read_text()
+        self.assertRegex(workflow, r"(?m)^  pull_request:\n    branches: \[master\]$")
+        self.assertRegex(workflow, r"(?m)^  push:\n    branches:\n      - master$")
+        self.assertIn("  workflow_dispatch:", workflow)
+        self.assertIn("  contents: read", workflow)
+        self.assertNotIn("pull_request_target", workflow)
+        self.assertNotIn("secrets.", workflow)
+
+    def test_pr_tests_include_desktop_and_isolated_data(self):
+        workflow = (ROOT / ".github/workflows/test.yaml").read_text()
+        self.assertRegex(workflow, r"(?m)^  pull_request:\n    branches: \[master\]$")
+        self.assertRegex(workflow, r"(?m)^  push:\n    branches: \[master\]$")
+        self.assertIn("  workflow_dispatch:", workflow)
+        self.assertIn("submodules: recursive", workflow)
+        self.assertIn("java-version: '25.0.2'", workflow)
+        self.assertIn("python3 src/test/packaging_test.py", workflow)
+        self.assertIn("xvfb-run --auto-servernum ./gradlew :test :desktopTest", workflow)
+        self.assertIn("build/test-results/**", workflow)
+        self.assertIn("  contents: read", workflow)
+        self.assertNotIn("pull_request_target", workflow)
+        self.assertNotIn("secrets.", workflow)
+        build = (ROOT / "build.gradle").read_text()
+        self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('test-home')", build)
+        self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('desktop-test-home')", build)
+
     def test_macos_identity(self):
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as f:
             info = plistlib.load(f)

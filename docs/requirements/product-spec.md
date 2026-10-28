@@ -37,6 +37,9 @@ Windows x64 releases include an MSI installer built on Windows. The installer fi
 
 # Product specification
 
+## REQ-010: Automatic PR validation — adopted
+GitHub Actions validates opened, reopened and updated PRs targeting master and pushes to master. Tests runs the pinned Java 25 regression suite and desktop tests under Xvfb with isolated test homes. Windows Installer runs regression and packaging checks, builds an unsigned MSI, installs it and verifies the installed version. Both workflows support manual dispatch, use read-only repository permissions and retain test reports. CI acceptance requires successful runs for the current PR revision; a rejected dispatch or an empty checks list is not a pass. No release publication or dependency-source changes are included.
+
 ## REQ-001: PurityWallet brand — adopted
 Use PurityWallet for visible application, CLI and package names. Derive desktop icons from the mobile blue master. Preserve Java packages, dependency coordinates, application identities, storage paths, wallet formats, upstream attribution and licenses. Help, issues and releases use https://github.com/PurityWallet/PurityWalletPC. Disable upstream automatic version checks and hide their switch; offer manual releases access.
 

@@ -138,3 +138,11 @@ Verification after merging `origin/master` at `30309168`:
 - `python3 src/test/packaging_test.py` passed all 11 packaging checks. No new native installer was built during this merge repair.
 - `:verifyCheckpoint --tests '*PurityMainnetSyncTest'` passed at 2026-10-28 06:01:45 UTC: all 9,526 headers from 961632 through 971157 were validated, including the former conflict at 963647. The final hash was `000000000000000015c0b8960bff5722c5cd97c8d18db43eaa0905103a078872`, with accumulated work `2805496392289787167998650`. Cache replay and valid/invalid Merkle-proof controls passed.
 - Dependency sources and verification rules were not changed. No release publication or real payment was performed.
+
+## Automatic PR CI
+
+REQ-010 adds regression/desktop test and Windows MSI build/install/version checks for PR updates targeting master and pushes to master. Manual dispatch remains available. CI uses pinned actions, Java 25.0.2 and unchanged dependency sources; Linux desktop tests use Xvfb, while Windows installation validation runs on windows-2022. No signing or release publication is added.
+
+The first manual validation attempt for PR #2 at 03e2a05b was rejected before a run was created: HTTP 422, `Actions has been disabled for this user`. Repository Actions and the workflow were enabled. The same actor had recent runs in the mobile repository with matching repository Actions permissions. This is a dispatch blocker with an unconfirmed upstream cause, not a test failure or successful CI acceptance. See [TASK-008](tasks/TASK-008.md) for current verification status.
+
+The two new workflow checks first failed for the missing PR trigger and missing test workflow, then all 13 Python checks passed after implementation. actionlint 1.7.12 accepted both changed workflows and `git diff --check` passed. These local checks do not substitute for Windows execution or successful GitHub jobs.

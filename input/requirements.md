@@ -14,6 +14,9 @@
 
 # Mobile requirement adaptation
 
+## REQ-010: Automatic PR validation — adopted
+Run Java 25 regression and desktop tests and Windows MSI build/install/version validation when a PR targeting master is opened, reopened or updated. Validate pushes to master and retain manual workflow dispatch. Use pinned actions and dependencies, read-only repository permissions, isolated test data and unsigned CI artifacts. First attempt manual validation of PR #2 at 03e2a05b; repair observed failures and require successful GitHub runs before claiming CI acceptance. Do not modify dependency sources or publish releases.
+
 ## REQ-001: PurityWallet brand — adopted
 Use PurityWallet for visible application, CLI and package names. Derive desktop icons from the mobile blue master. Preserve Java packages, dependency coordinates, application identities, storage paths, wallet formats, upstream attribution and licenses. Help, issues and releases use https://github.com/PurityWallet/PurityWalletPC. Disable upstream automatic version checks and hide their switch; offer manual releases access.
 

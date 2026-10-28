@@ -3,12 +3,19 @@ name: Windows Installer
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [master]
   push:
     branches:
+      - master
       - codex/puritywallet-windows-1.0.0b
 
 permissions:
   contents: read
+
+concurrency:
+  group: windows-installer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   JDK_JAVAC_OPTIONS: '-Xlint:-module'
@@ -41,7 +48,7 @@ jobs:
           "RELEASE_VERSION=$releaseVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           python src/test/packaging_test.py
       - name: Test and build Windows MSI
-        run: ./gradlew :test :jpackage
+        run: ./gradlew :test :jpackage --console=plain
       - name: Prepare versioned Windows installer
         run: |
           $msis = @(Get-ChildItem build/jpackage -Filter *.msi)
@@ -87,4 +94,13 @@ jobs:
             build/reports/**
             ${{ runner.temp }}/puritywallet-msi.log
             ${{ runner.temp }}/puritywallet-version*.txt
+          if-no-files-found: ignore
+      - name: Upload Windows test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-windows-test-results
+          path: |
+            build/reports/tests/**
+            build/test-results/**
           if-no-files-found: ignore
