@@ -1,20 +1,20 @@
+# Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 Summary: PurityWallet
-Name: sparrowwallet
+Name: puritywallet
 Version: ${version}
 Release: 1
 License: ASL 2.0
 Vendor: Unknown
 
 %if "x" != "x"
-URL: https://github.com/PurityWallet/PurityWalletPC
+URL: https://bitcoininstitute.com/PurityWalletPC
 %endif
 
 %if "x/opt" != "x"
 Prefix: /opt
 %endif
 
-Provides: sparrowwallet
-Obsoletes: sparrow <= 2.1.4
+Provides: puritywallet
 
 %if "xutils" != "x"
 Group: utils
@@ -51,8 +51,8 @@ PurityWallet
 
 %install
 rm -rf %{buildroot}
-install -d -m 755 %{buildroot}/opt/sparrowwallet
-cp -r %{_sourcedir}/opt/sparrowwallet/* %{buildroot}/opt/sparrowwallet
+install -d -m 755 %{buildroot}/opt/puritywallet
+cp -r %{_sourcedir}/opt/puritywallet/* %{buildroot}/opt/puritywallet
 if [ "$(echo %{_sourcedir}/lib/systemd/system/*.service)" != '%{_sourcedir}/lib/systemd/system/*.service' ]; then
   install -d -m 755 %{buildroot}/lib/systemd/system
   cp %{_sourcedir}/lib/systemd/system/*.service %{buildroot}/lib/systemd/system
@@ -78,9 +78,9 @@ sed -i -e 's/.*/%dir "&"/' %{package_filelist}
 
 %post
 package_type=rpm
-xdg-desktop-menu install /opt/sparrowwallet/lib/sparrowwallet-PurityWallet.desktop
-xdg-mime install /opt/sparrowwallet/lib/sparrowwallet-PurityWallet-MimeInfo.xml
-install -D -m 644 /opt/sparrowwallet/lib/runtime/conf/udev/*.rules /etc/udev/rules.d
+xdg-desktop-menu install /opt/puritywallet/lib/puritywallet-puritywallet.desktop
+xdg-mime install /opt/puritywallet/lib/puritywallet-puritywallet-MimeInfo.xml
+install -D -m 644 /opt/puritywallet/lib/runtime/conf/udev/*.rules /etc/udev/rules.d
 if ! getent group plugdev > /dev/null; then
     groupadd -r plugdev
 fi
@@ -252,9 +252,9 @@ desktop_trace ()
   echo "$@"
 }
 
-do_if_file_belongs_to_single_package /opt/sparrowwallet/lib/sparrowwallet-PurityWallet.desktop xdg-desktop-menu uninstall /opt/sparrowwallet/lib/sparrowwallet-PurityWallet.desktop
-do_if_file_belongs_to_single_package /opt/sparrowwallet/lib/sparrowwallet-PurityWallet-MimeInfo.xml xdg-mime uninstall /opt/sparrowwallet/lib/sparrowwallet-PurityWallet-MimeInfo.xml
-do_if_file_belongs_to_single_package /opt/sparrowwallet/lib/sparrowwallet-PurityWallet.desktop desktop_uninstall_default_mime_handler sparrowwallet-PurityWallet.desktop application/psbt application/bitcoin-transaction application/pgp-signature x-scheme-handler/bitcoin x-scheme-handler/auth47 x-scheme-handler/lightning
+do_if_file_belongs_to_single_package /opt/puritywallet/lib/puritywallet-puritywallet.desktop xdg-desktop-menu uninstall /opt/puritywallet/lib/puritywallet-puritywallet.desktop
+do_if_file_belongs_to_single_package /opt/puritywallet/lib/puritywallet-puritywallet-MimeInfo.xml xdg-mime uninstall /opt/puritywallet/lib/puritywallet-puritywallet-MimeInfo.xml
+do_if_file_belongs_to_single_package /opt/puritywallet/lib/puritywallet-puritywallet.desktop desktop_uninstall_default_mime_handler puritywallet-puritywallet.desktop application/psbt application/bitcoin-transaction application/pgp-signature x-scheme-handler/bitcoin x-scheme-handler/auth47 x-scheme-handler/lightning
 
 
 %clean

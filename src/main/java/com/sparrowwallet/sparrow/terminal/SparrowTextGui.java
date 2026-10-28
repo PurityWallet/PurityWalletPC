@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.terminal;
 
 import com.google.common.eventbus.Subscribe;
@@ -39,7 +40,7 @@ public class SparrowTextGui extends MultiWindowTextGUI {
         Panel panel = new Panel(new BorderLayout());
 
         titleBar = new Panel(new GridLayout(3));
-        new Label("PurityWallet Terminal").addTo(titleBar);
+        new Label("PurityWallet").addTo(titleBar);
         this.proxyStatusLabel = new ProxyStatusLabel();
         titleBar.addComponent(proxyStatusLabel, GridLayout.createLayoutData(GridLayout.Alignment.END, GridLayout.Alignment.CENTER, true, false));
         this.connectedLabel = new Label("Disconnected");

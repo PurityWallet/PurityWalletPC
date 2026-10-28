@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net.cormorant.bitcoind;
 
 import com.github.arteam.simplejsonrpc.client.JsonRpcClient;
@@ -5,6 +6,8 @@ import com.github.arteam.simplejsonrpc.client.exception.JsonRpcException;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Sets;
 import com.sparrowwallet.drongo.KeyPurpose;
+import com.sparrowwallet.drongo.Network;
+import com.sparrowwallet.sparrow.net.HeaderCheckpoints;
 import com.sparrowwallet.drongo.OutputDescriptor;
 import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.wallet.BlockTransactionHash;
@@ -120,8 +123,12 @@ public class BitcoindClient {
 
     public void initialize() throws CormorantBitcoindException {
         networkInfo = getBitcoindService().getNetworkInfo();
-        if(networkInfo.version() < 240000) {
-            throw new CormorantBitcoindException("Bitcoin Core versions older than v24 are not supported");
+        if(!networkInfo.supportsPurity() && (Network.get() == Network.MAINNET || networkInfo.version() < 240000)) {
+            throw new CormorantBitcoindException("Bitcoin Purity Core 1.0 or later is required");
+        }
+        if(Network.get() == Network.MAINNET && !HeaderCheckpoints.PURITY_ACTIVATION_HASH.toString().equals(
+                getBitcoindService().getBlockHash(HeaderCheckpoints.PURITY_ACTIVATION_HEIGHT))) {
+            throw new CormorantBitcoindException("Node is not on the Bitcoin Purity chain: activation block mismatch");
         }
 
         BlockchainInfo blockchainInfo = getBitcoindService().getBlockchainInfo();

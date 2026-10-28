@@ -2,6 +2,8 @@ package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.protocol.*;
+import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.drongo.protocol.HeaderCheckpoints;
 
 import java.math.BigInteger;
 import java.util.EnumMap;

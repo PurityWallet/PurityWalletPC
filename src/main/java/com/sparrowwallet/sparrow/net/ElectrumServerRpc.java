@@ -1,9 +1,10 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.github.arteam.simplejsonrpc.client.Transport;
 import com.github.arteam.simplejsonrpc.client.exception.JsonRpcBatchException;
 import com.github.arteam.simplejsonrpc.client.exception.JsonRpcException;
-import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.sparrow.net.HeaderChainState;
 import com.sparrowwallet.drongo.protocol.VerificationException;
 import com.sparrowwallet.drongo.wallet.BlockTransactionHash;
 import com.sparrowwallet.drongo.wallet.Wallet;

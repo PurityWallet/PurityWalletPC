@@ -34,7 +34,6 @@ class PurityConfigTest {
         assertEquals(FeeRatesSource.ELECTRUM_SERVER, config.getFeeRatesSource());
         assertEquals(ExchangeSource.NONE, config.getExchangeSource());
         assertFalse(config.isFetchRates());
-        assertFalse(config.isCheckNewVersions());
     }
 
     @Test

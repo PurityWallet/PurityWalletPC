@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow;
 
 import com.beust.jcommander.JCommander;
@@ -597,16 +598,16 @@ public class AppController implements Initializable {
 
     public void installUdevRules(ActionEvent event) {
         String commands = """
-                sudo install -m 644 /opt/sparrowwallet/lib/runtime/conf/udev/*.rules /etc/udev/rules.d
+                sudo install -m 644 /opt/puritywallet/lib/runtime/conf/udev/*.rules /etc/udev/rules.d
                 sudo udevadm control --reload
                 sudo udevadm trigger
                 sudo groupadd -f -r plugdev
                 sudo usermod -aG plugdev `whoami`
                 """;
         String home = System.getProperty(SparrowWallet.JPACKAGE_APP_PATH);
-        if(home != null && !home.startsWith("/opt/sparrowwallet") && home.endsWith("bin/PurityWallet")) {
-            home = home.replace("bin/PurityWallet", "");
-            commands = commands.replace("/opt/sparrowwallet/", home);
+        if(home != null && !home.startsWith("/opt/puritywallet") && home.endsWith("bin/puritywallet")) {
+            home = home.replace("bin/puritywallet", "");
+            commands = commands.replace("/opt/puritywallet/", home);
         }
 
         TextAreaDialog dialog = new TextAreaDialog(commands, false);
@@ -2948,10 +2949,10 @@ public class AppController implements Initializable {
                 Notifications notificationBuilder = Notifications.create()
                         .title("PurityWallet - " + walletName)
                         .text(text)
-                        .graphic(new DialogImage(DialogImage.Type.SPARROW))
+                        .graphic(new DialogImage(DialogImage.Type.PURITYWALLET))
                         .hideAfter(Duration.seconds(15))
                         .position(Pos.TOP_RIGHT)
-                        .threshold(5, Notifications.create().title("PurityWallet").text("Multiple new wallet transactions").graphic(new DialogImage(DialogImage.Type.SPARROW)))
+                        .threshold(5, Notifications.create().title("PurityWallet").text("Multiple new wallet transactions").graphic(new DialogImage(DialogImage.Type.PURITYWALLET)))
                         .onAction(e -> selectTab(event.getWallet()));
 
                 //If controlsfx can't find our window, we must set the window ourselves (unfortunately notification is then shown within this window)
@@ -2980,28 +2981,6 @@ public class AppController implements Initializable {
             }
         });
         wait.play();
-    }
-
-    @Subscribe
-    public void versionUpdated(VersionUpdatedEvent event) {
-        Hyperlink versionUpdateLabel = new Hyperlink("PurityWallet " + event.getVersion() + " available");
-        versionUpdateLabel.getStyleClass().add("version-hyperlink");
-        versionUpdateLabel.setOnAction(event1 -> {
-            AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/releases");
-        });
-
-        Hyperlink existingUpdateLabel = null;
-        for(Node node : statusBar.getRightItems()) {
-            if(node instanceof Hyperlink) {
-                existingUpdateLabel = (Hyperlink)node;
-            }
-        }
-
-        if(existingUpdateLabel != null) {
-            statusBar.getRightItems().remove(existingUpdateLabel);
-        }
-
-        statusBar.getRightItems().add(0, versionUpdateLabel);
     }
 
     @Subscribe

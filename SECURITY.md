@@ -1,3 +1,11 @@
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
+# PurityWallet security reports
+
+Report PurityWallet issues through the [PurityWalletPC security page](https://github.com/PurityWallet/PurityWalletPC/security).
+The policy below is retained as upstream Sparrow documentation; its contacts,
+release locations and disclosure commitments belong to Sparrow, not PurityWallet.
+For upstream vulnerabilities, use the upstream reporting channels below.
+
 # Security Policy
 
 ## Reporting a Vulnerability

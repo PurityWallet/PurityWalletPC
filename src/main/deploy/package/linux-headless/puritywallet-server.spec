@@ -1,20 +1,20 @@
-Summary: PurityWallet Server
-Name: sparrowserver
+# Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
+Summary: PurityWallet
+Name: puritywallet-server
 Version: ${version}
 Release: 1
 License: ASL 2.0
 Vendor: Unknown
 
 %if "x" != "x"
-URL: https://github.com/PurityWallet/PurityWalletPC
+URL: https://bitcoininstitute.com/PurityWalletPC
 %endif
 
 %if "x/opt" != "x"
 Prefix: /opt
 %endif
 
-Provides: sparrowserver
-Obsoletes: sparrow <= 2.1.4
+Provides: puritywallet-server
 
 %if "xutils" != "x"
 Group: utils
@@ -38,7 +38,7 @@ Autoreq: 0
 %define default_filesystem / /opt /usr /usr/bin /usr/lib /usr/local /usr/local/bin /usr/local/lib
 
 %description
-PurityWallet Server
+PurityWallet
 
 %global __os_install_post %{nil}
 
@@ -48,8 +48,8 @@ PurityWallet Server
 
 %install
 rm -rf %{buildroot}
-install -d -m 755 %{buildroot}/opt/sparrowserver
-cp -r %{_sourcedir}/opt/sparrowserver/* %{buildroot}/opt/sparrowserver
+install -d -m 755 %{buildroot}/opt/puritywallet-server
+cp -r %{_sourcedir}/opt/puritywallet-server/* %{buildroot}/opt/puritywallet-server
 if [ "$(echo %{_sourcedir}/lib/systemd/system/*.service)" != '%{_sourcedir}/lib/systemd/system/*.service' ]; then
   install -d -m 755 %{buildroot}/lib/systemd/system
   cp %{_sourcedir}/lib/systemd/system/*.service %{buildroot}/lib/systemd/system

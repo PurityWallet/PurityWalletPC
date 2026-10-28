@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.wallet;
 
 import com.sparrowwallet.drongo.wallet.Wallet;

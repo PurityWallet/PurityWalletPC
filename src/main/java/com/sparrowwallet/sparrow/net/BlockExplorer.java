@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.sparrow.AppServices;
@@ -11,7 +12,7 @@ import java.net.URL;
 import java.util.Locale;
 
 public enum BlockExplorer {
-    PURITY_MEMPOOL("https://mempool.bitcoinpurity.org"),
+    MEMPOOL_SPACE("https://mempool.bitcoinpurity.org"),
     NONE("http://none");
 
     private static final Logger log = LoggerFactory.getLogger(BlockExplorer.class);

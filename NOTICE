@@ -1,0 +1,26 @@
+PurityWallet
+https://bitcoininstitute.com/PurityWalletPC
+
+Derived from Sparrow Wallet 2.5.6 and its drongo library:
+https://github.com/sparrowwallet/sparrow
+https://github.com/sparrowwallet/drongo
+Copyright (c) Craig Raw and the Sparrow Wallet / drongo contributors.
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+PurityWallet modifications (2026-10-27): product name, application identity,
+website, launchers and packaging; Bitcoin Purity service defaults, fork
+checkpoints and ASERT header validation. Internal package names and
+interoperable wallet formats retain upstream identifiers.
+
+ASERT follows Bitcoin Purity / Bitcoin Cash aserti3 integer calculations.
+Bitcoin Purity / Bitcoin Core sources are MIT licensed:
+Copyright (c) 2009-2010 Satoshi Nakamoto
+Copyright (c) 2009-2022 The Bitcoin Core developers
+See THIRD-PARTY-LICENSES/BitcoinPurity-MIT.txt.
+
+Dependencies retain their own licenses and notices. Runtime dependency
+license information is preserved in the distribution's legal directory.
+
+PurityWallet artwork follow-up (2026-10-27): application icons and Sparrow
+UI graphics use the existing brand assets from the local mobile PurityWallet
+project. Documentation is maintained in English. See docs/branding.md.

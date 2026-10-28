@@ -3,6 +3,8 @@ package com.sparrowwallet.sparrow.net;
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.protocol.*;
+import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.drongo.protocol.HeaderCheckpoints;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

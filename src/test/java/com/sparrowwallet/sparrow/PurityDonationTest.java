@@ -21,10 +21,10 @@ class PurityDonationTest {
     }
 
     @Test
-    void brandDoesNotRenameStorageIdentity() {
+    void retainsTheReleasedPurityWalletIdentity() {
         assertEquals("PurityWallet", SparrowWallet.APP_NAME);
-        assertEquals("Sparrow", SparrowWallet.STORAGE_NAME);
-        assertEquals("sparrow.home", SparrowWallet.APP_HOME_PROPERTY);
-        assertEquals("sparrow", SparrowWallet.APP_ID);
+        assertEquals("PurityWallet", SparrowWallet.STORAGE_NAME);
+        assertEquals("puritywallet.home", SparrowWallet.APP_HOME_PROPERTY);
+        assertEquals("puritywallet", SparrowWallet.APP_ID);
     }
 }

@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.io;
 
 import com.sparrowwallet.drongo.IOUtils;
@@ -21,7 +22,7 @@ public class Sparrow implements WalletImport, WalletExport {
 
     @Override
     public String getName() {
-        return "Sparrow";
+        return "PurityWallet";
     }
 
     @Override
@@ -52,8 +53,8 @@ public class Sparrow implements WalletImport, WalletExport {
             Files.copy(tempStorage.getWalletFile().toPath(), outputStream);
             outputStream.flush();
         } catch(Exception e) {
-            log.error("Error exporting Sparrow wallet file", e);
-            throw new ExportException("Error exporting Sparrow wallet file", e);
+            log.error("Error exporting PurityWallet wallet file", e);
+            throw new ExportException("Error exporting PurityWallet wallet file", e);
         } finally {
             deleteTempDirectory(tempDir);
         }
@@ -61,7 +62,7 @@ public class Sparrow implements WalletImport, WalletExport {
 
     @Override
     public String getWalletExportDescription() {
-        return "Exports your Sparrow wallet file, which can be imported into another Sparrow instance running on any supported platform. If the wallet is encrypted, the same password is used to encrypt the exported file.";
+        return "Exports your PurityWallet wallet file, which can be imported into another PurityWallet instance running on any supported platform. If the wallet is encrypted, the same password is used to encrypt the exported file.";
     }
 
     @Override
@@ -86,7 +87,7 @@ public class Sparrow implements WalletImport, WalletExport {
 
     @Override
     public String getWalletImportDescription() {
-        return "Imports an exported Sparrow wallet file into Sparrow's wallets folder.";
+        return "Imports an exported PurityWallet wallet file into PurityWallet's wallets folder.";
     }
 
     @Override
@@ -125,7 +126,7 @@ public class Sparrow implements WalletImport, WalletExport {
 
             return wallet;
         } catch(IOException | StorageException | MnemonicException e) {
-            throw new ImportException("Error importing Sparrow wallet", e);
+            throw new ImportException("Error importing PurityWallet wallet", e);
         } finally {
             if(storage != null) {
                 storage.closeAndWait();

@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.google.common.eventbus.Subscribe;
@@ -287,7 +288,7 @@ public class ElectrumServer {
     }
 
     public List<String> getServerVersion() throws ServerException {
-        return electrumServerRpc.getServerVersion(getTransport(), "Sparrow", SUPPORTED_VERSIONS);
+        return electrumServerRpc.getServerVersion(getTransport(), "PurityWallet", SUPPORTED_VERSIONS);
     }
 
     public ServerFeatures getServerFeatures() throws ServerException {
@@ -3452,6 +3453,14 @@ public class ElectrumServer {
                             subscribedScriptHashes.clear();
                         } else {
                             tip = new BlockHeaderTip();
+                        }
+
+                        if(Network.get() == Network.MAINNET) {
+                            BlockHeaders activation = electrumServerRpc.getBlockHeadersChunk(getTransport(), HeaderCheckpoints.PURITY_ACTIVATION_HEIGHT, 1);
+                            BlockHeader header = new BlockHeader(Utils.hexToBytes(activation.hex));
+                            if(activation.count != 1 || !header.getHash().equals(HeaderCheckpoints.PURITY_ACTIVATION_HASH)) {
+                                throw new ServerException("Server is not on the Bitcoin Purity chain: activation block mismatch");
+                            }
                         }
 
                         String banner = electrumServer.getServerBanner();

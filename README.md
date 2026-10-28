@@ -1,132 +1,75 @@
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 # PurityWallet
 
-PurityWallet is a desktop wallet for Bitcoin Purity, adapted from [Sparrow Wallet](https://github.com/sparrowwallet/sparrow). It retains desktop software/hardware wallets, multisig, watch-only wallets and PSBT workflows.
+Current release version: **1.0.0b**. Native installer metadata uses numeric version **1.0.0**.
 
-**Purity mainnet verification is adapted in the application:** shared historical checkpoint 961631, fixed activation block 961637 and integer ASERT validation replace the Bitcoin-only forward rules without changing dependency sources. Read-only acceptance verified every header from 961632 through 971156, cache replay and a post-fork transaction proof. See [migration results](docs/migration-report.md) for commands and platform/release limits.
+PurityWallet is a desktop wallet for the **Bitcoin Purity** blockchain, derived from Sparrow Wallet. Its full and short product names are both **PurityWallet**.
 
-## Purity defaults
+Website: [bitcoininstitute.com/PurityWalletPC](https://bitcoininstitute.com/PurityWalletPC).
+Source and releases: [PurityWallet/PurityWalletPC](https://github.com/PurityWallet/PurityWalletPC).
 
-- Public Electrum: `ssl://electrum.bitcoinpurity.org:50002` (TLS, mainnet).
-- Explorer: [Purity Mempool](https://mempool.bitcoinpurity.org).
-- Custom Electrum/Core-compatible connections and custom explorers remain supported.
-- Automatic fees come from the connected node; manual fees remain available.
-- Fiat valuations, external Bitcoin fee sources and Sparrow update checks are disabled, including with old settings.
-- Donate in About uses the normal Send workflow. The shipped recipient is an invalid placeholder, so donations are unavailable until configured.
+## Build and run
 
-[Documentation](docs/README.md) · [Issues](https://github.com/PurityWallet/PurityWalletPC/issues) · [Releases](https://github.com/PurityWallet/PurityWalletPC/releases)
-
-## Building
-
-Clone this repository and initialize its pinned submodules:
+Use Eclipse Temurin **25.0.2+10** (the release JDK), with `JAVA_HOME` pointing to it.
 
 ```sh
-git clone --recursive git@github.com:PurityWallet/PurityWalletPC.git
+git clone --recursive https://github.com/PurityWallet/PurityWalletPC.git
+cd PurityWalletPC
+./gradlew test
+python3 src/test/packaging_test.py
+./puritywallet
 ```
 
-In order to build, PurityWallet requires Java 25 or higher to be installed.
-The release binaries are built with [Eclipse Temurin 25.0.2+10](https://github.com/adoptium/temurin25-binaries/releases/tag/jdk-25.0.2%2B10).
-If you are using [SDKMAN](https://sdkman.io/), you can use `sdk env install` to ensure you have the correct version.
+On Windows use `puritywallet.bat`. Packaged executables are `puritywallet` / `puritywallet.exe`.
 
-Other packages may also be necessary to build depending on the platform. On Debian/Ubuntu systems:
-
-`sudo apt install -y rpm fakeroot binutils`
-
-The PurityWallet binaries can be built from source using
-
-`./gradlew jpackage`
-
-On Linux distributions without `deb` or `rpm` packaging tools installed (such as Arch), building the installers can be skipped with
-
-`./gradlew jpackage -PskipInstallers=true`
-
-Note that to build the Windows installer, you will need to install [WiX](https://github.com/wixtoolset/wix3/releases).
-
-When updating to the latest HEAD
-
-`git pull --recurse-submodules`
-
-The release binaries are reproducible from v1.5.0 onwards (pre codesigning and installer packaging). More detailed [instructions on reproducing the binaries](docs/reproducible.md) are provided.
-
-> Video documentation of your build process uploaded to [bitcoinbinary.org](https://bitcoinbinary.org/) is appreciated. Alternatively check the site if you wish to see if someone else already verified the provided binaries.
-
-## Running
-
-If you prefer to run PurityWallet directly from source, it can be launched from within the project directory with
-
-`./sparrow`
-
-Java 25 or higher must be installed.
-
-## Configuration
-
-PurityWallet has a number of command line options, for example to change its home folder or use testnet:
-
-```
-./sparrow -h
-
-Usage: puritywallet [options]
-  Options:
-    --dir, -d
-      Path to PurityWallet home folder
-    --help, -h
-      Show usage
-    --level, -l
-      Set log level
-      Possible Values: [ERROR, WARN, INFO, DEBUG, TRACE]
-    --network, -n
-      Network to use
-      Possible Values: [mainnet, testnet, regtest, signet, testnet4]
+```sh
+./puritywallet --help
+./puritywallet --version
+./puritywallet --dir /path/to/puritywallet
+./puritywallet --terminal
+./gradlew jpackage
 ```
 
-Note that testnet currently refers to testnet3.
+Distributions are generated under `build/jpackage`. See [build documentation](docs/reproducible.md).
 
-As a fallback, the network (mainnet, testnet, testnet4, regtest or signet) can also be set using an environment variable `SPARROW_NETWORK`. For example:
+## Bitcoin Purity
 
-`export SPARROW_NETWORK=testnet`
+- Public Electrum: `ssl://electrum.bitcoinpurity.org:50002`.
+- Explorer and fallback broadcast: [mempool.bitcoinpurity.org](https://mempool.bitcoinpurity.org).
+- Private Electrum and Bitcoin Purity Core nodes can also be configured.
+- Mainnet headers are validated forward from the shared checkpoint **961631**, with the fixed Purity activation hash at **961637** and integer **ASERT** (600-second spacing, one-day half-life).
+- Bitcoin-compatible addresses, PSBT, `bitcoin:` payment URIs and BTC/sats amount encoding are retained, matching the existing mobile PurityWallet. BTC market-price sources and Sparrow automatic updates are disabled.
+- Bitcoin testnet, testnet4 and Signet are not configured as Purity networks; startup rejects them. Development regtest remains available with `--network regtest`.
 
-A final fallback which can be useful when running the PurityWallet binary is to create a file called ``network-testnet`` in the Sparrow home folder (see below) to configure the testnet network.
+## Application data
 
-Note that if you are connecting to an Electrum server when using testnet, that server will need to be running on testnet configuration as well.
+PurityWallet has its own application identity and never automatically imports Sparrow configuration or wallets.
 
-For storage compatibility with upstream, PurityWallet stores its mainnet config file, log file and wallets in a home folder location appropriate to the operating system:
+| Platform | Default home |
+| --- | --- |
+| macOS / Linux | `~/.puritywallet` |
+| Windows | `%APPDATA%/PurityWallet` |
 
-| Platform | Location |
-|----------| -------- |
-| macOS    | ~/.sparrow |
-| Linux    | ~/.sparrow |
-| Windows  | %APPDATA%/Sparrow |
+The existing XDG directory mechanism is retained with the `puritywallet` directory name. Logs are named `puritywallet.log`. The home override is `-Dpuritywallet.home=...`; the network environment variable is `PURITYWALLET_NETWORK`.
 
-Testnet3, testnet4, regtest and signet configurations (along with their wallets) are stored in subfolders to allow easy switching between networks.
+## Brand assets
 
-On macOS and Linux, PurityWallet also supports the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/).
-This is opt in: for each category below, if the corresponding directory already exists, Sparrow uses it, otherwise it continues to use the home folder above. Categories are resolved independently, so files can be moved across one at a time.
+Application and UI icons reuse the mobile PurityWallet project's transparent blue-and-white logo. See [asset provenance and sizes](docs/branding.md). All project documentation is maintained in English.
 
-| Category | Location | Contents                              |
-|----------| -------- |---------------------------------------|
-| Config   | `$XDG_CONFIG_HOME/sparrow` (default `~/.config/sparrow`) | `config`, `network-*` markers         |
-| Data     | `$XDG_DATA_HOME/sparrow` (default `~/.local/share/sparrow`) | `wallets`, `certs`, `lark`            |
-| State    | `$XDG_STATE_HOME/sparrow` (default `~/.local/state/sparrow`) | `sparrow.log`, `tor/work`, lock files |
-| Cache    | `$XDG_CACHE_HOME/sparrow` (default `~/.cache/sparrow`) | `tor/cache`                           |
+## License and attribution
 
-Specifying a home folder with the `-d` argument disables XDG resolution entirely, and stores all files in the given folder.
+The actual upstream Sparrow Wallet source is licensed under **Apache License 2.0**, not GPLv2. PurityWallet retains the original [LICENSE](LICENSE), upstream attribution and the modification statement in [NOTICE](NOTICE). ASERT-related MIT attribution is included under [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES).
 
-## Compatibility
+Distribution images include these notices in the bundled runtime's `legal/puritywallet` directory. Dependencies retain their own licenses. Internal Java package names, wallet-file magic and hardware-wallet menu names remain compatible with upstream.
 
-The existing Sparrow application identities and data directories are intentionally retained. Independent coexistence with Sparrow is not guaranteed. No automatic wallet migration is performed. Wallet files, PSBT, URI schemes and import formats remain compatible. `SPARROW_NETWORK`, `sparrow.home` and the `sparrow` development script retain their existing names. Only Purity mainnet public defaults are bundled; other modes require manual configuration and no Purity Signet support is added.
+## Mobile requirement adaptation and verification
 
-## Verification
+Fees use the connected node; manual fees remain available. Fiat controls and automatic update checks are unavailable. About Donate selects an open wallet and uses the normal amount-free Send workflow; the shipped invalid recipient placeholder prevents payment until configured.
 
 ```sh
 ./gradlew :test
 ./gradlew :desktopTest
 ./gradlew :verifyCheckpoint
-./gradlew :jpackageImage
 ```
 
-The UI tests require a graphical desktop and save previews under `build/qa/`. The checkpoint command is an explicit read-only live gate, covering shared historical checkpoints and full Purity forward synchronization, replay and inclusion-proof checks. It requires access to the configured public Electrum service. No validation switch is disabled.
-
-Desktop icon containers are generated by `python3 scripts/generate-icons.py` on macOS using `sips`. The checked-in 1024 px master is copied unchanged from the mobile blue PurityWallet icon (SHA-256 `4c77b0cf5d54172a5194ba6f97c616f6848e0f52e3ac3e916630c24a906f0111`). Existing asset filenames are retained for compatibility.
-
-## License and upstream attribution
-
-PurityWallet retains Sparrow Wallet's Apache 2.0 license and upstream copyright notices; see [LICENSE](LICENSE). Upstream signing keys and release signatures do not authenticate PurityWallet releases. Signing, notarization and distribution are outside this change.
+The desktop tests require a graphical session. The network gate performs read-only checkpoint and full mainnet sync/replay/inclusion-proof checks in an isolated home. See [migration results](docs/migration-report.md) and the [task index](docs/tasks/README.md).

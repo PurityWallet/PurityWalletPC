@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.io;
 
 import com.google.gson.*;
@@ -44,7 +45,6 @@ public class Config {
     private boolean groupByAddress = true;
     private boolean includeMempoolOutputs = true;
     private boolean notifyNewTransactions = true;
-    private boolean checkNewVersions = false;
     private Theme theme;
     private boolean openWalletsInNewWindows = false;
     private boolean chunkAddresses = true;
@@ -174,7 +174,7 @@ public class Config {
     }
 
     public Server getBlockExplorer() {
-        return blockExplorer == null ? BlockExplorer.PURITY_MEMPOOL.getServer() : blockExplorer;
+        return blockExplorer == null ? BlockExplorer.MEMPOOL_SPACE.getServer() : blockExplorer;
     }
 
     public void setBlockExplorer(Server blockExplorer) {
@@ -273,15 +273,6 @@ public class Config {
 
     public void setNotifyNewTransactions(boolean notifyNewTransactions) {
         this.notifyNewTransactions = notifyNewTransactions;
-        flush();
-    }
-
-    public boolean isCheckNewVersions() {
-        return false;
-    }
-
-    public void setCheckNewVersions(boolean checkNewVersions) {
-        this.checkNewVersions = checkNewVersions;
         flush();
     }
 

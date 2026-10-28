@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/psbt">
     <comment>Partially Signed Bitcoin Transaction</comment>

@@ -1,3 +1,4 @@
+# Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 name: Package
 
 on: workflow_dispatch
@@ -34,7 +35,7 @@ jobs:
         if: ${{ runner.os == 'macOS' }}
         uses: sparrowwallet/github-actions/codesign-macos@2cf7ea991d8c6fe7afe734898d0d0e748a3f3dac # v1
         with:
-          app-name: PurityWallet
+          app-name: puritywallet
           certificate: ${{ secrets.MACOS_CERTIFICATE }}
           certificate-password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
           apple-id: ${{ secrets.MACOS_NOTARIZATION_APPLE_ID }}
@@ -55,8 +56,8 @@ jobs:
           name: PurityWallet Build - ${{ runner.os }} ${{ runner.arch }}
           path: |
             build/jpackage/*
-            !build/jpackage/PurityWallet/
-            !build/jpackage/PurityWallet.app/
+            !build/jpackage/puritywallet/
+            !build/jpackage/puritywallet.app/
       - name: Headless build with Gradle
         if: ${{ runner.os == 'Linux' }}
         run: ./gradlew -Djava.awt.headless=true clean jpackage
@@ -73,4 +74,4 @@ jobs:
           name: PurityWallet Build - ${{ runner.os }} ${{ runner.arch }} Headless
           path: |
             build/jpackage/*
-            !build/jpackage/PurityWallet/
+            !build/jpackage/puritywallet/

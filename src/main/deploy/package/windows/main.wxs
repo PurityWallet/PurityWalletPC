@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 
 <!--
   This file is a copy of the jpackage WiX template (src/jdk.jpackage/windows/classes/jdk/jpackage/internal/resources/main.wxs in the JDK sources),
@@ -33,7 +34,7 @@
 
   <Product
     Id="$(var.JpProductCode)"
-    Name="$(var.JpAppName)"
+    Name="PurityWallet"
     Language="$(var.JpProductLanguage)"
     Version="$(var.JpAppVersion)"
     Manufacturer="$(var.JpAppVendor)"
@@ -79,7 +80,7 @@
     <Directory Id="TARGETDIR" Name="SourceDir"/>
 
     <DirectoryRef Id="TARGETDIR">
-        <Component Id="RegistryEntries" Guid="{206C911C-56EF-44B8-9257-5FD214427965}">
+        <Component Id="RegistryEntries" Guid="{3D5840FC-253A-5E8F-9981-5DC65311B88F}">
             <RegistryKey Root="HKCR" Key="auth47" Action="createAndRemoveOnUninstall">
                 <RegistryValue Type="string" Name="URL Protocol" Value=""/>
                 <RegistryValue Type="string" Value="URL:Auth47 Authentication URI"/>
@@ -111,9 +112,9 @@
                 </RegistryKey>
             </RegistryKey>
         </Component>
-        <Component Id="CapabilitiesEntries" Guid="{BE92DD88-F799-47CC-A256-4165F9183A46}">
+        <Component Id="CapabilitiesEntries" Guid="{9912A885-D978-5376-B955-D843CAEC8031}">
             <RegistryKey Root="HKMU" Key="Software\$(var.JpAppName)\Capabilities" Action="createAndRemoveOnUninstall">
-                <RegistryValue Type="string" Name="ApplicationName" Value="$(var.JpAppName)"/>
+                <RegistryValue Type="string" Name="ApplicationName" Value="PurityWallet"/>
                 <RegistryValue Type="string" Name="ApplicationDescription" Value="$(var.JpAppDescription)"/>
                 <RegistryKey Key="URLAssociations">
                     <RegistryValue Type="string" Name="auth47" Value="auth47"/>

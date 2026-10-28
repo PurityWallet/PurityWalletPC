@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 
 <?import java.lang.*?>
 <?import java.util.*?>
@@ -40,7 +41,7 @@
                             <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="12" icon="EXCLAMATION_TRIANGLE" styleClass="gap-warning" />
                         </graphic>
                         <tooltip>
-                            <Tooltip text="Large gap limits may cause wallet loading failures on some servers, or increased rescanning when connected to Bitcoin Core." />
+                            <Tooltip text="Large gap limits may cause wallet loading failures on some servers, or increased rescanning when connected to Bitcoin Purity Core." />
                         </tooltip>
                     </Label>
                 </Field>

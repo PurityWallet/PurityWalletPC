@@ -1,14 +1,16 @@
-# TASK-001: Brand adaptation
+# TASK-001: PurityWallet Rebrand and Bitcoin Purity Mainnet Migration
 
-Status: Implemented and locally verified
+Source: `input/requirements.md`.
 
-Requirements: REQ-001
+- [x] Add regression tests for branding, packaging and chain validation before implementation.
+- [x] Update product names, website, launchers and installers.
+- [x] Isolate data directories and logs.
+- [x] Configure Purity Electrum / Esplora, checkpoints and ASERT validation.
+- [x] Include Apache 2.0 origin and modification notices in distributions.
+- [x] Compile, test and synchronize documentation.
 
-## Work
-Display branding, blue icon derivatives, project links, manual releases and disabled upstream updates; retain storage/application identity.
+Validation: 352 Java tests, one live checkpoint verification and three Python packaging checks passed.
+The macOS application image was built. Its launcher `--version` / `--help`, application identity and bundled LICENSE / NOTICE / MIT notices were checked.
+Windows and Linux packaging configuration was updated but was not built or run on those platforms.
 
-## Verification
-Write relevant behavior tests before implementation. Record checks and limitations in the migration report.
-
-## Results
-See [migration results](../migration-report.md) for tests, build checks and acceptance limits.
+Artwork replacement and the English documentation follow-up are tracked in [TASK-002](TASK-002.md).

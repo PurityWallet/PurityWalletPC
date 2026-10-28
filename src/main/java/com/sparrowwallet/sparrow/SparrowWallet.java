@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow;
 
 import com.beust.jcommander.JCommander;
@@ -19,13 +20,13 @@ import java.io.File;
 import java.util.*;
 
 public class SparrowWallet {
-    public static final String APP_ID = "sparrow";
+    public static final String APP_ID = "puritywallet";
     public static final String APP_NAME = "PurityWallet";
-    public static final String STORAGE_NAME = "Sparrow";
-    public static final String APP_VERSION = "2.5.6";
+    public static final String STORAGE_NAME = APP_NAME;
+    public static final String APP_VERSION = "1.0.0b";
     public static final String APP_VERSION_SUFFIX = "";
-    public static final String APP_HOME_PROPERTY = ApplicationDir.getHomeProperty(STORAGE_NAME);
-    public static final String NETWORK_ENV_PROPERTY = "SPARROW_NETWORK";
+    public static final String APP_HOME_PROPERTY = ApplicationDir.getHomeProperty(APP_NAME);
+    public static final String NETWORK_ENV_PROPERTY = "PURITYWALLET_NETWORK";
     public static final String JPACKAGE_APP_PATH = "jpackage.app-path";
 
     private static Instance instance;
@@ -113,6 +114,11 @@ public class SparrowWallet {
             Network.set(Network.SIGNET);
         }
 
+        if(Network.get() != Network.MAINNET && Network.get() != Network.REGTEST) {
+            System.err.println("PurityWallet supports Bitcoin Purity mainnet and development regtest only.");
+            System.exit(1);
+        }
+
         if(Network.get() != Network.MAINNET) {
             getLogger().info("Using " + Network.get() + " configuration");
         }
@@ -148,7 +154,7 @@ public class SparrowWallet {
         } catch(UnsupportedOperationException e) {
             Drongo.removeRootLogAppender("STDOUT");
             getLogger().error("Unable to launch application", e);
-            System.out.println("No display detected. Use PurityWallet Server on a headless (no display) system.");
+            System.out.println("No display detected. Use PurityWallet on a headless (no display) system.");
 
             try {
                 if(instance != null) {

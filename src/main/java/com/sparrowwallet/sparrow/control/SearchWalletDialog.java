@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.csvreader.CsvWriter;
@@ -60,7 +61,7 @@ public class SearchWalletDialog extends Dialog<Entry> {
         dialogPane.getStylesheets().add(AppServices.class.getResource("search.css").toExternalForm());
         AppServices.setStageIcon(dialogPane.getScene().getWindow());
         dialogPane.setHeaderText(showWallet ? "Search All Wallets" : "Search Wallet " + walletForms.get(0).getMasterWallet().getName());
-        dialogPane.setGraphic(new DialogImage(DialogImage.Type.SPARROW));
+        dialogPane.setGraphic(new DialogImage(DialogImage.Type.PURITYWALLET));
 
         VBox vBox = new VBox();
         vBox.setSpacing(20);

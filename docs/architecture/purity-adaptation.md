@@ -1,6 +1,6 @@
 # Purity adaptation architecture
 
-The JavaFX application remains in com.sparrowwallet.sparrow. Visible product identity is separate from the existing Sparrow storage identity. No dependency source or application identity changes are allowed.
+The JavaFX application remains in com.sparrowwallet.sparrow. The released base PurityWallet identity and independent storage paths are retained. No dependency sources are changed by the adaptation.
 
 Config provides effective node-only fees, ExchangeSource.NONE and disabled upstream updates regardless of saved preferences. Only the Purity mainnet public peer is bundled; private Electrum and Core use existing connection paths. Network validation, transaction verification and checkpoints must not be bypassed.
 

@@ -1,10 +1,17 @@
-# PurityWallet repository documentation
+# PurityWallet Documentation
 
-- [Requirement intake](../input/requirements.md)
+- [Requirements intake](../input/requirements.md)
 - [Product specification](requirements/product-spec.md)
-- [Architecture](architecture/purity-adaptation.md)
-- [API and compatibility](api/compatibility.md)
-- [Migration and verification results](migration-report.md)
+- [Architecture](architecture.md)
+- [API contract](api-contract.md)
+- [Brand assets](branding.md)
+- [Migration report](migration-report.md)
 - [Task index](tasks/README.md)
+- [Build instructions](reproducible.md)
 
-The [reproducible build notes](reproducible.md) describe upstream tooling; they are not evidence of a signed or published PurityWallet release.
+Website: https://bitcoininstitute.com/PurityWalletPC.
+
+All project documentation is maintained in English. Dependency documentation remains under its upstream ownership.
+
+- [Mobile adaptation architecture](architecture/purity-adaptation.md)
+- [Wallet and validation compatibility](api/compatibility.md)

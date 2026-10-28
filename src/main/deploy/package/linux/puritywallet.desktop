@@ -1,8 +1,9 @@
+# Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 [Desktop Entry]
 Name=PurityWallet
 Comment=PurityWallet
-Exec=/opt/sparrowwallet/bin/PurityWallet %U
-Icon=/opt/sparrowwallet/lib/PurityWallet.png
+Exec=/opt/puritywallet/bin/puritywallet %U
+Icon=/opt/puritywallet/lib/puritywallet.png
 Terminal=false
 Type=Application
 Categories=Finance;Network;

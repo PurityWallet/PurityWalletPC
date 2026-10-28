@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 
 <?import java.lang.*?>
 <?import java.util.*?>
@@ -18,7 +19,7 @@
                 <Label fx:id="title" text="Welcome to PurityWallet" styleClass="title-label" />
             </HBox>
             <Region HBox.hgrow="ALWAYS"/>
-            <DialogImage type="SPARROW" AnchorPane.rightAnchor="0"/>
+            <DialogImage type="PURITYWALLET" AnchorPane.rightAnchor="0"/>
         </HBox>
         <VBox fx:id="welcomeBox" styleClass="content-area" spacing="20" prefHeight="390">
             <VBox fx:id="step1" spacing="15">
@@ -42,14 +43,14 @@
                 <Label text="A yellow toggle means you are connected to a public server." wrapText="true" styleClass="content-text" />
             </VBox>
             <VBox fx:id="step3" spacing="15">
-                <Label text="Connecting to a Bitcoin Core node" styleClass="title-text">
+                <Label text="Connecting to a Bitcoin Purity Core node" styleClass="title-text">
                     <graphic>
                         <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="TOGGLE_ON" styleClass="title-icon" />
                     </graphic>
                 </Label>
-                <Label text="If you are running your own Bitcoin Core node, you can configure PurityWallet to connect to it directly. " wrapText="true" styleClass="content-text" />
-                <Label text="This means you are not sharing your transaction data, but be aware Bitcoin Core stores your balance, transactions and public keys unencrypted on that node, which is not ideal for true cold storage." wrapText="true" styleClass="content-text" />
-                <Label text="A green toggle means you are connected to a Bitcoin Core node." wrapText="true" styleClass="content-text" />
+                <Label text="If you are running your own Bitcoin Purity Core node, you can configure PurityWallet to connect to it directly. " wrapText="true" styleClass="content-text" />
+                <Label text="This means you are not sharing your transaction data, but be aware Bitcoin Purity Core stores your balance, transactions and public keys unencrypted on that node, which is not ideal for true cold storage." wrapText="true" styleClass="content-text" />
+                <Label text="A green toggle means you are connected to a Bitcoin Purity Core node." wrapText="true" styleClass="content-text" />
             </VBox>
             <VBox fx:id="step4" spacing="15">
                 <Label text="Connecting to a Private Electrum Server" styleClass="title-text">
@@ -57,7 +58,7 @@
                         <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="TOGGLE_ON" styleClass="title-icon" />
                     </graphic>
                 </Label>
-                <Label text="The most private way to connect is to your own Electrum server, which in turn connects to your Bitcoin Core node." wrapText="true" styleClass="content-text" />
+                <Label text="The most private way to connect is to your own Electrum server, which in turn connects to your Bitcoin Purity Core node." wrapText="true" styleClass="content-text" />
                 <Label text="Because these servers index all Bitcoin transactions equally, your wallet transactions are never stored on the server in an identifiable way, and your server forgets your requests immediately after serving them." wrapText="true" styleClass="content-text" />
                 <Label text="A blue toggle means you are connected to a private Electrum server. You're now ready to configure a server and start using PurityWallet!" wrapText="true" styleClass="content-text" />
             </VBox>

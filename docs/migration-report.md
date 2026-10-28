@@ -83,3 +83,58 @@ The previous mainnet checkpoint blocker is resolved. This acceptance validates h
 - `./gradlew :verifyCheckpoint --tests '*HeaderCheckpointVerificationTest.verifyMainnetCheckpoints'`: passed against the shared historical checkpoint profile, separately from the full forward-sync acceptance above.
 - `jimage list` confirms the packaged runtime contains `ChainCheckpoints`, `HeaderState`, `PurityHeaderState` and `purity/mainnet-anchor.hex`; the packaged launcher reports `PurityWallet 2.5.6`.
 - `git diff --check` passed. drongo and lark source trees remain clean at `13059ebc2979640b30bc1534b4584e2191578672` and `fdcf5a0f0e774bca27a7a08b4e0427465f1dcbac` respectively. No dependency source/commit changes, production deployment, real payment or release publication occurred.
+
+## Base release history merged into PR #2
+
+
+## Product and chain migration
+
+The source project is Sparrow Wallet 2.5.6. Its actual LICENSE is Apache 2.0; the user confirmed retaining that license.
+The inherited defaults used Bitcoin Electrum, Esplora and price services, plus Sparrow's update service. Inapplicable services have been replaced or disabled.
+
+Bitcoin Purity and Bitcoin share their genesis block, address encoding and transaction formats. Genesis verification alone cannot distinguish the fork. Mainnet validation therefore pins activation block 961637 and uses Purity ASERT.
+
+Local parameter sources:
+
+- `bitcoinpurity/src/kernel/chainparams.cpp`
+- `bitcoinpurity/src/consensus/params.h`
+- `bitcoinpurity/src/pow.cpp`
+- `PurityWallet/blue_modules/BlueElectrum.ts`
+- `PurityWallet/models/blockExplorer.ts`
+
+Internal package names, hardware-wallet menu references and compatible import identifiers retain their upstream meaning. User-visible product names, installation paths and executables use PurityWallet / puritywallet.
+Sparrow wallets and configuration are not migrated automatically, keeping chain data and service settings separate.
+
+Purity Core uses 1.x version encoding (`1.0.0 = 10000`), so the Bitcoin Core `>=240000` version check cannot be reused for it. The mainnet Core adapter validates the Purity subversion and activation block before initializing wallets.
+
+The first migration passed 352 Java tests, one live Purity Electrum checkpoint verification and three Python packaging checks. Its macOS image was built and checked for launcher identity and bundled license files. No dependency source was modified. Windows and Linux configuration received static checks; native builds and execution were not verified.
+
+## Brand artwork and English documentation
+
+Reuse the existing blue-and-white brand assets from the local mobile PurityWallet project. The canonical logo is copied without modifying its artwork. Desktop PNGs are scaled from that transparent master; ICNS and ICO containers wrap these PNGs. The mobile project's opaque native icons are not used, avoiding black rectangles in light themes.
+Replace all Sparrow application artwork and route branded JavaFX dialogs and wallet-model views to the PurityWallet PNG. Preserve internal `WalletModel.SPARROW` values for wallet-file compatibility and retain other vendors' artwork.
+
+Translate the requirements intake, product specification, architecture, API contract, migration report and task documents into English. Existing English README, security and reproducible-build documents remain in English.
+
+Asset provenance is recorded in [Brand assets](branding.md). Verification for this follow-up is recorded in [TASK-002](tasks/TASK-002.md).
+
+The artwork follow-up passed 352 Java regression tests and nine Python checks. Light and dark JavaFX renders were visually inspected, including dialogs, wallet-model views, window icons and tray icons. The macOS application and ZIP were rebuilt and checked for the transparent native icon and current runtime resources. Windows and Linux native execution remains unverified.
+
+## Initial PurityWallet release version
+
+The initial PurityWallet release version is `1.0.0b`, replacing the inherited product version `2.5.6`. Upstream attribution still identifies Sparrow Wallet 2.5.6. The application, banners and archive filenames use `1.0.0b`; native metadata uses numeric `1.0.0`. The download verifier retains the beta suffix when locating release manifests and signatures.
+
+## Windows installer validation
+
+[GitHub Actions run 40490528703](https://github.com/PurityWallet/PurityWalletPC/actions/runs/40490528703) built the Windows x64 MSI from commit `e47afe4d7a8441fe3d0ce1300fdba736d1b746e7`. The Windows job passed the Java test task and eleven Python checks, successfully installed the MSI and verified `PurityWallet 1.0.0b` from the installed executable. The downloaded MSI matched its SHA-256 file. See [TASK-004](tasks/TASK-004.md) for the artifact details. This supersedes the earlier Windows validation limitation; Linux native execution remains unverified. The MSI is not code-signed.
+
+## PR #2 merge integration
+
+The merged base release identity, 1.0.0b version, puritywallet launchers, independent data directories, transparent assets and Windows packaging fixes take precedence over the earlier branch-local Sparrow storage identity. The mobile adaptation keeps its node-only fee policy, hidden fiat controls, in-app donation flow and application-selected ChainCheckpoints/PurityHeaderState validation. Earlier validation results above describe their respective pre-merge commits; conflict-resolution verification is recorded separately below.
+
+Verification after merging `origin/master` at `30309168`:
+
+- Java 25 `:test :desktopTest` passed: 372 regression tests and 3 desktop tests, with no failures or skipped tests.
+- `python3 src/test/packaging_test.py` passed all 11 packaging checks. No new native installer was built during this merge repair.
+- `:verifyCheckpoint --tests '*PurityMainnetSyncTest'` passed at 2026-10-28 06:01:45 UTC: all 9,526 headers from 961632 through 971157 were validated, including the former conflict at 963647. The final hash was `000000000000000015c0b8960bff5722c5cd97c8d18db43eaa0905103a078872`, with accumulated work `2805496392289787167998650`. Cache replay and valid/invalid Merkle-proof controls passed.
+- Dependency sources and verification rules were not changed. No release publication or real payment was performed.

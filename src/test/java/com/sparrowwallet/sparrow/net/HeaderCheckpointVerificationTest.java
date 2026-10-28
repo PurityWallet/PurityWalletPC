@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.Network;
@@ -56,21 +57,6 @@ public class HeaderCheckpointVerificationTest {
         verifyCheckpoints(Network.MAINNET);
     }
 
-    @Test
-    public void verifyTestnetCheckpoints() {
-        verifyCheckpoints(Network.TESTNET);
-    }
-
-    @Test
-    public void verifyTestnet4Checkpoints() {
-        verifyCheckpoints(Network.TESTNET4);
-    }
-
-    @Test
-    public void verifySignetCheckpoints() {
-        verifyCheckpoints(Network.SIGNET);
-    }
-
     private void verifyCheckpoints(Network network) {
         Network.set(network);
 
@@ -111,7 +97,7 @@ public class HeaderCheckpointVerificationTest {
             reader.start();
 
             ElectrumServerRpc rpc = new SimpleElectrumServerRpc();
-            rpc.getServerVersion(transport, "Sparrow", ElectrumServer.SUPPORTED_VERSIONS);
+            rpc.getServerVersion(transport, "PurityWallet", ElectrumServer.SUPPORTED_VERSIONS);
 
             //The last pin must be buried, which is established by the server having the headers above it rather than by its announced tip
             int maxHeight = checkpoints.getMaxHeight();
@@ -119,7 +105,7 @@ public class HeaderCheckpointVerificationTest {
             assertEquals(CHECKPOINT_BURIAL_DEPTH + 1, buried.count, "The last pinned header at height " + maxHeight + " is not buried by " + CHECKPOINT_BURIAL_DEPTH + " blocks");
 
             for(int i = 0; i < PINS_VERIFIED; i++) {
-                int pinnedHeight = maxHeight - (i * HeaderChainState.RETARGET_INTERVAL);
+                int pinnedHeight = i == 0 ? maxHeight : 961631 - ((i - 1) * HeaderChainState.RETARGET_INTERVAL);
                 if(pinnedHeight <= 0) {
                     break;
                 }

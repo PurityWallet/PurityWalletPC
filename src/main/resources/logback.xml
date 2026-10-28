@@ -1,3 +1,4 @@
+<!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 <configuration>
     <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
 
@@ -42,11 +43,11 @@
     <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator"/>
 
     <define name="appDir" class="com.sparrowwallet.drongo.PropertyDefiner">
-        <application>sparrow</application>
+        <application>puritywallet</application>
     </define>
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>${appDir}/sparrow.log</file>
+        <file>${appDir}/puritywallet.log</file>
         <encoder>
             <pattern>%date %level [%thread] %logger{10} [%file:%line] %msg%n</pattern>
         </encoder>

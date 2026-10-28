@@ -1,6 +1,6 @@
 # API and compatibility contract
 
-No external API, wallet serialization, PSBT format or public URI scheme changes. Java packages, application IDs, Bundle ID, default/XDG/custom data paths and storage keys retain their existing values. No wallet migration occurs; coexistence with upstream Sparrow is not guaranteed.
+No external API, wallet serialization, PSBT format or public URI scheme changes. Java packages, application IDs, Bundle ID, the released base PurityWallet default/XDG/custom data paths and storage keys retain their existing values. No wallet migration occurs; the released base independent PurityWallet identity is preserved.
 
 Help: https://github.com/PurityWallet/PurityWalletPC#readme
 Issues: https://github.com/PurityWallet/PurityWalletPC/issues

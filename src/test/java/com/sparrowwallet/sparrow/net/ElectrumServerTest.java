@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.ExtendedKey;
@@ -13,7 +14,7 @@ import com.sparrowwallet.drongo.wallet.Keystore;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.drongo.wallet.WalletNode;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.sparrow.net.HeaderChainState;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.sparrow.AppServices;
 import com.sparrowwallet.sparrow.ChainTip;
