@@ -4,7 +4,6 @@ package com.sparrowwallet.sparrow.net;
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.OsType;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.sparrow.net.HeaderCheckpoints;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.VerificationException;
 import com.sparrowwallet.sparrow.SparrowWallet;
@@ -317,8 +316,8 @@ public class HeaderStoreTest {
         assertThrows(IllegalArgumentException.class, () -> store.chainStateAt(1));
     }
 
-    private static HeaderCheckpoints checkpoints() {
-        HeaderCheckpoints checkpoints = HeaderCheckpoints.get(Network.REGTEST);
+    private static ChainCheckpoints checkpoints() {
+        ChainCheckpoints checkpoints = ChainCheckpoints.get(Network.REGTEST);
         assertEquals(0, checkpoints.getMaxHeight());
 
         return checkpoints;

@@ -41,6 +41,10 @@ public class AboutController {
         stage.close();
     }
 
+    public void openDonate(ActionEvent event) {
+        AppServices.openDonation();
+    }
+
     public void openWebsite(ActionEvent event) {
         AppServices.get().getApplication().getHostServices().showDocument("https://bitcoininstitute.com/PurityWalletPC");
     }

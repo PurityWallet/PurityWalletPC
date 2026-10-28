@@ -38,8 +38,8 @@
                         <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="TOGGLE_ON" styleClass="title-icon" />
                     </graphic>
                 </Label>
-                <Label text="If you are beginning your journey in self custody, or just storing a small amount, the easiest way to connect PurityWallet to the Bitcoin Purity blockchain is via one of the preconfigured public Electrum servers. " wrapText="true" styleClass="content-text" />
-                <Label text="However, although PurityWallet only connects to servers that have a record of respecting privacy, it is still not ideal as you are sharing your transaction history and balance with them." wrapText="true" styleClass="content-text" />
+                <Label text="If you are beginning your journey in self custody, or just storing a small amount, the easiest way to connect PurityWallet to the Bitcoin Purity blockchain is via the preconfigured Purity Electrum server. " wrapText="true" styleClass="content-text" />
+                <Label text="However, a public server can see your transaction history and balance." wrapText="true" styleClass="content-text" />
                 <Label text="A yellow toggle means you are connected to a public server." wrapText="true" styleClass="content-text" />
             </VBox>
             <VBox fx:id="step3" spacing="15">

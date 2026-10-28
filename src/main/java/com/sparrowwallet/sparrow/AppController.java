@@ -521,8 +521,12 @@ public class AppController implements Initializable {
         }
     }
 
+    public void showReleases(ActionEvent event) {
+        AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/releases");
+    }
+
     public void showDocumentation(ActionEvent event) {
-        AppServices.get().getApplication().getHostServices().showDocument("https://bitcoininstitute.com/PurityWalletPC");
+        AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC#readme");
     }
 
     public void showLogFile(ActionEvent event) throws IOException {
@@ -535,7 +539,7 @@ public class AppController implements Initializable {
     }
 
     public void openSupport(ActionEvent event) {
-        AppServices.get().getApplication().getHostServices().showDocument("https://bitcoininstitute.com/PurityWalletPC");
+        AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/issues");
     }
 
     public void submitBugReport(ActionEvent event) {
@@ -545,7 +549,7 @@ public class AppController implements Initializable {
 
         if(optResponse.isPresent()) {
             if(optResponse.get() == bugType) {
-                AppServices.get().getApplication().getHostServices().showDocument("https://bitcoininstitute.com/PurityWalletPC");
+                AppServices.get().getApplication().getHostServices().showDocument("https://github.com/PurityWallet/PurityWalletPC/issues");
             } else {
                 openSupport(event);
             }

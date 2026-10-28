@@ -35,9 +35,9 @@ Distributions are generated under `build/jpackage`. See [build documentation](do
 ## Bitcoin Purity
 
 - Public Electrum: `ssl://electrum.bitcoinpurity.org:50002`.
-- Explorer, fees and fallback broadcast: [mempool.bitcoinpurity.org](https://mempool.bitcoinpurity.org).
+- Explorer and fallback broadcast: [mempool.bitcoinpurity.org](https://mempool.bitcoinpurity.org).
 - Private Electrum and Bitcoin Purity Core nodes can also be configured.
-- Mainnet headers are anchored to the Purity activation block at **961637** and validated using **ASERT**, with 600-second target spacing and a one-day half-life.
+- Mainnet headers are validated forward from the shared checkpoint **961631**, with the fixed Purity activation hash at **961637** and integer **ASERT** (600-second spacing, one-day half-life).
 - Bitcoin-compatible addresses, PSBT, `bitcoin:` payment URIs and BTC/sats amount encoding are retained, matching the existing mobile PurityWallet. BTC market-price sources and Sparrow automatic updates are disabled.
 - Bitcoin testnet, testnet4 and Signet are not configured as Purity networks; startup rejects them. Development regtest remains available with `--network regtest`.
 
@@ -61,3 +61,15 @@ Application and UI icons reuse the mobile PurityWallet project's transparent blu
 The actual upstream Sparrow Wallet source is licensed under **Apache License 2.0**, not GPLv2. PurityWallet retains the original [LICENSE](LICENSE), upstream attribution and the modification statement in [NOTICE](NOTICE). ASERT-related MIT attribution is included under [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES).
 
 Distribution images include these notices in the bundled runtime's `legal/puritywallet` directory. Dependencies retain their own licenses. Internal Java package names, wallet-file magic and hardware-wallet menu names remain compatible with upstream.
+
+## Mobile requirement adaptation and verification
+
+Fees use the connected node; manual fees remain available. Fiat controls and automatic update checks are unavailable. About Donate selects an open wallet and uses the normal amount-free Send workflow; the shipped invalid recipient placeholder prevents payment until configured.
+
+```sh
+./gradlew :test
+./gradlew :desktopTest
+./gradlew :verifyCheckpoint
+```
+
+The desktop tests require a graphical session. The network gate performs read-only checkpoint and full mainnet sync/replay/inclusion-proof checks in an isolated home. See [migration results](docs/migration-report.md) and the [task index](docs/tasks/README.md).

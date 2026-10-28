@@ -2,8 +2,6 @@
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.sparrow.net.HeaderChainState;
-import com.sparrowwallet.sparrow.net.HeaderCheckpoints;
 import com.sparrowwallet.drongo.protocol.ProtocolException;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.VerificationException;
@@ -40,10 +38,10 @@ public class HeaderStore {
 
     private final File file;
     private final int startHeight;      //the height of the record at offset zero, being the header immediately above the last pin
-    private final HeaderCheckpoints checkpoints;
-    private HeaderChainState chainState;    //the live state at the store tip, rebuilt from the anchor whenever the file is truncated
+    private final ChainCheckpoints checkpoints;
+    private HeaderState chainState;    //the live state at the store tip, rebuilt from the anchor whenever the file is truncated
 
-    private HeaderStore(File file, HeaderCheckpoints checkpoints) {
+    private HeaderStore(File file, ChainCheckpoints checkpoints) {
         this.file = file;
         this.startHeight = checkpoints.getMaxHeight() + 1;
         this.checkpoints = checkpoints;
@@ -52,9 +50,15 @@ public class HeaderStore {
     /**
      * Loads (or creates) the store for the given checkpoints, fully re-verifying the chain from the pinned anchor.
      */
-    public static synchronized HeaderStore load(HeaderCheckpoints checkpoints) throws IOException {
+    public static synchronized HeaderStore load(ChainCheckpoints checkpoints) throws IOException {
         int startHeight = checkpoints.getMaxHeight() + 1;
         File headersDir = Storage.getHeadersDir();
+        if(checkpoints.getCacheNamespace() != null) {
+            headersDir = new File(headersDir, checkpoints.getCacheNamespace());
+            if(!headersDir.exists()) {
+                Storage.createOwnerOnlyDirectory(headersDir);
+            }
+        }
         deleteSupersededStores(headersDir, startHeight);
 
         HeaderStore store = new HeaderStore(new File(headersDir, Integer.toString(startHeight)), checkpoints);
@@ -207,12 +211,12 @@ public class HeaderStore {
      * A throwaway chain state re-walked from the anchor to the given height, on which a reorg candidate can be validated. A rolling state cannot be
      * rewound, so this walk is what a fork point costs.
      */
-    public synchronized HeaderChainState chainStateAt(int height) throws IOException {
+    public synchronized HeaderState chainStateAt(int height) throws IOException {
         if(height < startHeight - 1 || height > chainState.getHeight()) {
             throw new IllegalArgumentException("Height " + height + " is outside the store range " + (startHeight - 1) + " to " + chainState.getHeight());
         }
 
-        HeaderChainState state = walkTo(getOffset(height + 1));
+        HeaderState state = walkTo(getOffset(height + 1));
         if(state.getHeight() != height) {
             throw new VerificationException("The block header store could not be re-verified to height " + height + ", reaching only height " + state.getHeight());
         }
@@ -240,7 +244,7 @@ public class HeaderStore {
     }
 
     private void rebuild() throws IOException {
-        HeaderChainState state = walkTo(file.length());
+        HeaderState state = walkTo(file.length());
         long verifiedLength = getOffset(state.getHeight() + 1);
         if(file.length() > verifiedLength) {
             setLength(verifiedLength);
@@ -252,8 +256,8 @@ public class HeaderStore {
     /**
      * Re-verifies the records below the given offset from the pinned anchor, stopping at the first that does not extend the chain.
      */
-    private HeaderChainState walkTo(long endOffset) throws IOException {
-        HeaderChainState state = checkpoints.newChainState();
+    private HeaderState walkTo(long endOffset) throws IOException {
+        HeaderState state = checkpoints.newChainState();
         if(endOffset < HEADER_LENGTH) {
             return state;
         }

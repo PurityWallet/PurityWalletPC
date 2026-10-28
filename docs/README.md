@@ -12,3 +12,6 @@
 Website: https://bitcoininstitute.com/PurityWalletPC.
 
 All project documentation is maintained in English. Dependency documentation remains under its upstream ownership.
+
+- [Mobile adaptation architecture](architecture/purity-adaptation.md)
+- [Wallet and validation compatibility](api/compatibility.md)

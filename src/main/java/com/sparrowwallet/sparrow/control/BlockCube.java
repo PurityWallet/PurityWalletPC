@@ -54,7 +54,6 @@ public class BlockCube extends Group {
         this.confirmedProperty.set(confirmed);
 
         FeeRatesSource feeRatesSource = Config.get().getFeeRatesSource();
-        feeRatesSource = (feeRatesSource == null ? FeeRatesSource.MEMPOOL_SPACE : feeRatesSource);
         this.feeRatesSource.set(feeRatesSource);
 
         this.weightProperty.addListener((_, _, _) -> {

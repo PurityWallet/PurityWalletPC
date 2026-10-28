@@ -4,37 +4,26 @@ package com.sparrowwallet.sparrow.settings;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.sparrow.AppServices;
 import com.sparrowwallet.sparrow.EventManager;
-import com.sparrowwallet.sparrow.Mode;
 import com.sparrowwallet.sparrow.control.TextfieldDialog;
 import com.sparrowwallet.sparrow.control.UnlabeledToggleSwitch;
 import com.sparrowwallet.sparrow.event.*;
 import com.sparrowwallet.sparrow.io.Config;
 import com.sparrowwallet.sparrow.io.Server;
 import com.sparrowwallet.sparrow.net.BlockExplorer;
-import com.sparrowwallet.sparrow.net.ExchangeSource;
 import com.sparrowwallet.sparrow.net.FeeRatesSource;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
-import javafx.util.StringConverter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
-import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class GeneralSettingsController extends SettingsDetailController {
-    private static final Logger log = LoggerFactory.getLogger(GeneralSettingsController.class);
-
     private static final Server CUSTOM_BLOCK_EXPLORER = new Server("http://custom.block.explorer");
 
     @FXML
@@ -42,15 +31,6 @@ public class GeneralSettingsController extends SettingsDetailController {
 
     @FXML
     private ComboBox<Server> blockExplorers;
-
-    @FXML
-    private ComboBox<Currency> fiatCurrency;
-
-    @FXML
-    private ComboBox<ExchangeSource> exchangeSource;
-
-    @FXML
-    private Label currenciesLoadWarning;
 
     @FXML
     private UnlabeledToggleSwitch loadRecentWallets;
@@ -67,35 +47,11 @@ public class GeneralSettingsController extends SettingsDetailController {
     @FXML
     private UnlabeledToggleSwitch notifyNewTransactions;
 
-
-    private final ChangeListener<Currency> fiatCurrencyListener = new ChangeListener<Currency>() {
-        @Override
-        public void changed(ObservableValue<? extends Currency> observable, Currency oldValue, Currency newValue) {
-            if (newValue != null) {
-                Config.get().setFiatCurrency(newValue);
-                EventManager.get().post(new FiatCurrencySelectedEvent(exchangeSource.getValue(), newValue));
-            }
-        }
-    };
-
     @Override
     public void initializeView(Config config) {
-        if(config.getFeeRatesSource() != null) {
-            feeRatesSource.setValue(config.getFeeRatesSource());
-        } else {
-            feeRatesSource.getSelectionModel().select(1);
-            config.setFeeRatesSource(feeRatesSource.getValue());
-        }
-
+        feeRatesSource.setValue(config.getFeeRatesSource());
         feeRatesSource.setCellFactory(_ -> new FeeRatesSourceListCell());
         feeRatesSource.setButtonCell(feeRatesSource.getCellFactory().call(null));
-        feeRatesSource.valueProperty().addListener((observable, oldValue, newValue) -> {
-            config.setFeeRatesSource(newValue);
-            EventManager.get().post(new FeeRatesSourceChangedEvent(newValue));
-        });
-
-        currenciesLoadWarning.managedProperty().bind(currenciesLoadWarning.visibleProperty());
-        currenciesLoadWarning.setVisible(false);
 
         blockExplorers.setItems(getBlockExplorerList());
         blockExplorers.setCellFactory(_ -> new BlockExplorerListCell());
@@ -131,28 +87,7 @@ public class GeneralSettingsController extends SettingsDetailController {
             }
         });
 
-        if(config.getBlockExplorer() != null) {
-            blockExplorers.setValue(config.getBlockExplorer());
-        } else {
-            blockExplorers.getSelectionModel().select(0);
-        }
-
-        if(config.getExchangeSource() != null) {
-            exchangeSource.setValue(config.getExchangeSource());
-        } else {
-            exchangeSource.getSelectionModel().select(0);
-            config.setExchangeSource(exchangeSource.getValue());
-        }
-
-        exchangeSource.setButtonCell(new ExchangeSourceButtonCell());
-        exchangeSource.setCellFactory(_ -> new ExchangeSourceListCell());
-
-        exchangeSource.valueProperty().addListener((observable, oldValue, source) -> {
-            config.setExchangeSource(source);
-            updateCurrencies(source);
-        });
-
-        updateCurrencies(exchangeSource.getSelectionModel().getSelectedItem());
+        blockExplorers.setValue(config.getBlockExplorer());
 
         loadRecentWallets.setSelected(config.isLoadRecentWallets());
         loadRecentWallets.selectedProperty().addListener((observableValue, oldValue, newValue) -> {
@@ -182,6 +117,7 @@ public class GeneralSettingsController extends SettingsDetailController {
             config.setNotifyNewTransactions(newValue);
         });
 
+
     }
 
     private static Server getBlockExplorer(String serverUrl) {
@@ -199,49 +135,6 @@ public class GeneralSettingsController extends SettingsDetailController {
         }
         servers.add(CUSTOM_BLOCK_EXPLORER);
         return FXCollections.observableList(servers);
-    }
-
-    private void updateCurrencies(ExchangeSource exchangeSource) {
-        if(Config.get().getMode() == Mode.OFFLINE) {
-            Currency configCurrency = Config.get().getFiatCurrency();
-            updateCurrencies(configCurrency == null || exchangeSource == ExchangeSource.NONE ? List.of() : List.of(configCurrency));
-            return;
-        }
-
-        ExchangeSource.CurrenciesService currenciesService = new ExchangeSource.CurrenciesService(exchangeSource);
-        currenciesService.setOnSucceeded(event -> {
-            updateCurrencies(currenciesService.getValue());
-        });
-        currenciesService.setOnFailed(event -> {
-            log.error("Error retrieving currencies", event.getSource().getException());
-        });
-        currenciesService.start();
-    }
-
-    private void updateCurrencies(List<Currency> currencies) {
-        fiatCurrency.valueProperty().removeListener(fiatCurrencyListener);
-
-        fiatCurrency.getItems().clear();
-        fiatCurrency.getItems().addAll(currencies);
-
-        Currency configCurrency = Config.get().getFiatCurrency();
-        if(configCurrency != null && currencies.contains(configCurrency)) {
-            fiatCurrency.setDisable(false);
-            fiatCurrency.setValue(configCurrency);
-        } else if(!currencies.isEmpty()) {
-            fiatCurrency.setDisable(false);
-            fiatCurrency.getSelectionModel().select(0);
-            Config.get().setFiatCurrency(fiatCurrency.getValue());
-        } else {
-            fiatCurrency.setDisable(true);
-        }
-
-        currenciesLoadWarning.setVisible(exchangeSource.getValue() != ExchangeSource.NONE && currencies.isEmpty() && Config.get().getMode() != Mode.OFFLINE);
-
-        //Always fire event regardless of previous selection to update rates
-        EventManager.get().post(new FiatCurrencySelectedEvent(exchangeSource.getValue(), fiatCurrency.getValue()));
-
-        fiatCurrency.valueProperty().addListener(fiatCurrencyListener);
     }
 
     private static class FeeRatesSourceListCell extends ListCell<FeeRatesSource> {
@@ -277,37 +170,4 @@ public class GeneralSettingsController extends SettingsDetailController {
         }
     }
 
-    private static class ExchangeSourceButtonCell extends ListCell<ExchangeSource> {
-        @Override
-        protected void updateItem(ExchangeSource exchangeSource, boolean empty) {
-            super.updateItem(exchangeSource, empty);
-            if(exchangeSource == null || empty) {
-                setText("");
-                setGraphic(null);
-            } else {
-                setText(exchangeSource.getName());
-                setGraphic(exchangeSource.getSVGImage());
-                setGraphicTextGap(8.0d);
-            }
-        }
-    }
-
-    private static class ExchangeSourceListCell extends ListCell<ExchangeSource> {
-        @Override
-        protected void updateItem(ExchangeSource exchangeSource, boolean empty) {
-            super.updateItem(exchangeSource, empty);
-            if(exchangeSource == null || empty) {
-                setText("");
-                setGraphic(null);
-            } else {
-                String text = exchangeSource.getName();
-                if(exchangeSource.getDescription() != null && !exchangeSource.getDescription().isEmpty()) {
-                    text += " (" + exchangeSource.getDescription() + ")";
-                }
-                setText(text);
-                setGraphic(exchangeSource.getSVGImage());
-                setGraphicTextGap(8.0d);
-            }
-        }
-    }
 }

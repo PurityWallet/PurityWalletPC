@@ -599,19 +599,18 @@ public class ElectrumServer {
      * session or in one before it - still holds what the replaced block proved, at heights the server may well report unchanged. Where one is found,
      * the wallet is treated as a reorg at that height would have treated it: its nodes above are fetched again and the stored block hashes compared.
      * <p>
-     * Only the transactions within the deepest reorg the store accepts of the block height the wallet stored are compared, which keeps an ordinary
-     * load from reading the store at all. That is every transaction a reorg could have reached where the store kept pace with the wallet, since the
-     * wallet heard of every reorg while it was open. It is not where the wallet's height advanced while nothing was being verified - on a Bitcoin
-     * Core connection, or with verification off - and the store stood still: a reorg reconciled later, below that window, is not looked for.
+     * On Purity mainnet every stored proof above the common anchor is compared: the unchanged wallet format can contain Bitcoin proofs older than
+     * the recent reorg window. Other networks retain that window, covering the deepest reorg the store accepts from the wallet's stored height.
      * <p>
      * Returns whether every one of them could be compared, which is false while the store has yet to reach one. The comparison is then made again on
      * a later fetch, from the height it was first made from: the fetch in between moves the wallet's stored height on to the current tip.
      */
     private static boolean checkStoredProofs(Wallet wallet, WalletSyncLock walletSyncLock) throws ServerException {
         if(walletSyncLock.storedProofsFromHeight == null) {
-            int startHeight = HeaderCheckpoints.get(Network.get()).getMaxHeight() + 1;
+            int startHeight = ChainCheckpoints.get(Network.get()).getMaxHeight() + 1;
             Integer storedHeight = wallet.getStoredBlockHeight();
-            walletSyncLock.storedProofsFromHeight = storedHeight == null ? startHeight : Math.max(startHeight, storedHeight - MAX_REORG_DEPTH + 1);
+            walletSyncLock.storedProofsFromHeight = Network.get() == Network.MAINNET || storedHeight == null
+                    ? startHeight : Math.max(startHeight, storedHeight - MAX_REORG_DEPTH + 1);
         }
 
         int fromHeight = walletSyncLock.storedProofsFromHeight;
@@ -1540,7 +1539,7 @@ public class ElectrumServer {
      * session cache. The one header path worth batching: a range averages a difficulty period, and a restore can touch dozens while the user waits.
      */
     void prefetchVerifiedHeaders(Collection<Integer> heights) throws ServerException {
-        HeaderCheckpoints checkpoints = HeaderCheckpoints.get(Network.get());
+        ChainCheckpoints checkpoints = ChainCheckpoints.get(Network.get());
         Set<Integer> subCheckpointHeights = new TreeSet<>();
         for(int height : heights) {
             if(height > 0 && height <= checkpoints.getMaxHeight() && !verifiedHistoricalHeaders.containsKey(height)) {
@@ -1730,7 +1729,7 @@ public class ElectrumServer {
             synchronized(headerStoreLock) {
                 //A loaded store outlives the connection, so its file may have been removed or truncated underneath it since it was read
                 if(headerStore == null || !headerStore.isIntact()) {
-                    headerStore = HeaderStore.load(HeaderCheckpoints.get(Network.get()));
+                    headerStore = HeaderStore.load(ChainCheckpoints.get(Network.get()));
                 }
 
                 return headerStore;
@@ -1762,6 +1761,19 @@ public class ElectrumServer {
             } catch(IOException e) {
                 throw new ServerException("Could not write to the block header store", e);
             }
+        }
+    }
+
+    void verifyMainnetChain(ChainTip tip) throws ServerException {
+        if(Network.get() == Network.MAINNET) {
+            if(tip.height() < PurityHeaderState.ACTIVATION_HEIGHT) {
+                throw new VerificationException("Server has not reached the Purity activation block");
+            }
+            BlockHeaders activation = electrumServerRpc.getBlockHeadersChunk(getTransport(), PurityHeaderState.ACTIVATION_HEIGHT, 1);
+            if(activation.count != 1 || !new BlockHeader(Utils.hexToBytes(activation.hex)).getHash().equals(PurityHeaderState.ACTIVATION_HASH)) {
+                throw new VerificationException("Server does not serve the Purity activation block");
+            }
+            syncHeadersTo(PurityHeaderState.ACTIVATION_HEIGHT);
         }
     }
 
@@ -1862,7 +1874,7 @@ public class ElectrumServer {
         }
 
         List<BlockHeader> segment = candidate.subList(forkHeight - startHeight + 1, count);
-        HeaderChainState candidateState = store.chainStateAt(forkHeight);
+        HeaderState candidateState = store.chainStateAt(forkHeight);
         for(BlockHeader header : segment) {
             candidateState.add(header);
         }
@@ -1916,7 +1928,7 @@ public class ElectrumServer {
      * reported as a refusal. Heights above the last pin are served from the store, and those below it by hash linkage to a pin.
      */
     public BlockHeader getVerifiedHeader(int height) throws ServerException {
-        HeaderCheckpoints checkpoints = HeaderCheckpoints.get(Network.get());
+        ChainCheckpoints checkpoints = ChainCheckpoints.get(Network.get());
         if(height > checkpoints.getMaxHeight()) {
             HeaderStore store = getHeaderStore();
             try {
@@ -1999,7 +2011,7 @@ public class ElectrumServer {
     private static BlockHeader verifyAndCacheRange(int startHeight, int count, BlockHeaders chunk) {
         int anchorHeight = startHeight + count - 1;
         BlockHeader anchor = verifiedHistoricalHeaders.get(anchorHeight);
-        Sha256Hash anchorHash = anchor != null ? anchor.getHash() : HeaderCheckpoints.get(Network.get()).getHash(anchorHeight);
+        Sha256Hash anchorHash = anchor != null ? anchor.getHash() : ChainCheckpoints.get(Network.get()).getHash(anchorHeight);
         List<BlockHeader> headers = getLinkedHeaders(chunk, count, anchorHash);
         if(headers == null) {
             return null;
@@ -2066,7 +2078,7 @@ public class ElectrumServer {
         }
 
         ChainTip announced = AppServices.getAnnouncedTip();
-        return announced == null || announced.height() >= HeaderCheckpoints.get(Network.get()).getMaxHeight();
+        return announced == null || announced.height() >= ChainCheckpoints.get(Network.get()).getMaxHeight();
     }
 
     /**
@@ -2361,7 +2373,6 @@ public class ElectrumServer {
         Map<Integer, Double> targetBlocksFeeRatesSats = getDefaultFeeEstimates(targetBlocks);
 
         FeeRatesSource feeRatesSource = Config.get().getFeeRatesSource();
-        feeRatesSource = (feeRatesSource == null ? FeeRatesSource.MEMPOOL_SPACE : feeRatesSource);
         if(!feeRatesSource.isExternal()) {
             targetBlocksFeeRatesSats.putAll(feeRatesSource.getBlockTargetFeeRates(targetBlocksFeeRatesSats));
         } else if(useCached) {
@@ -2377,7 +2388,6 @@ public class ElectrumServer {
 
     public Double getNextBlockMedianFeeRate() {
         FeeRatesSource feeRatesSource = Config.get().getFeeRatesSource();
-        feeRatesSource = (feeRatesSource == null ? FeeRatesSource.MEMPOOL_SPACE : feeRatesSource);
         if(feeRatesSource.supportsNetwork(Network.get())) {
             try {
                 return feeRatesSource.getNextBlockMedianFeeRate();
@@ -2457,7 +2467,6 @@ public class ElectrumServer {
         }
 
         FeeRatesSource feeRatesSource = Config.get().getFeeRatesSource();
-        feeRatesSource = (feeRatesSource == null ? FeeRatesSource.MEMPOOL_SPACE : feeRatesSource);
 
         if(feeRatesSource.supportsNetwork(Network.get())) {
             try {
@@ -2499,7 +2508,6 @@ public class ElectrumServer {
 
     public List<BlockTransaction> getRecentMempoolTransactions() {
         FeeRatesSource feeRatesSource = Config.get().getFeeRatesSource();
-        feeRatesSource = (feeRatesSource == null ? FeeRatesSource.MEMPOOL_SPACE : feeRatesSource);
 
         if(feeRatesSource.supportsNetwork(Network.get())) {
             try {
@@ -3151,7 +3159,7 @@ public class ElectrumServer {
             return tipError;
         }
 
-        int maxCheckpointHeight = HeaderCheckpoints.get(Network.get()).getMaxHeight();
+        int maxCheckpointHeight = ChainCheckpoints.get(Network.get()).getMinimumTipHeight();
         if(tipReachedCheckpoints && tip.height < maxCheckpointHeight) {
             return "Announced block header tip at height " + tip.height + " is below the last verified checkpoint at height " + maxCheckpointHeight
                     + ", which the connected server has already announced a tip above";
@@ -3189,7 +3197,7 @@ public class ElectrumServer {
         lastTipReceivedAt = System.currentTimeMillis();
         staleTipWarned = false;
         invalidTipWarned = false;
-        if(height >= HeaderCheckpoints.get(Network.get()).getMaxHeight()) {
+        if(height >= ChainCheckpoints.get(Network.get()).getMinimumTipHeight()) {
             tipReachedCheckpoints = true;
         }
     }
@@ -3433,10 +3441,13 @@ public class ElectrumServer {
                             }
                             if(isVerificationMandatory()) {
                                 //A server below the last pinned header cannot serve the header sync, and would report every proof as refused
-                                int maxCheckpointHeight = HeaderCheckpoints.get(Network.get()).getMaxHeight();
+                                int maxCheckpointHeight = ChainCheckpoints.get(Network.get()).getMinimumTipHeight();
                                 if(tip.height < maxCheckpointHeight) {
                                     throw new ServerException("Server is at height " + tip.height + ", below the last verified checkpoint at height " + maxCheckpointHeight);
                                 }
+                            }
+                            if(Network.get() == Network.MAINNET && Config.get().getServerType() != ServerType.BITCOIN_CORE) {
+                                electrumServer.verifyMainnetChain(new ChainTip(tip.height, tip.getBlockHeader()));
                             }
                             initializeTip(tip);
                             subscribedScriptHashes.clear();
