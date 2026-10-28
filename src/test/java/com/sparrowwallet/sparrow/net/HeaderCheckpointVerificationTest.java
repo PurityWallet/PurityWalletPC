@@ -4,7 +4,6 @@ import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
 import com.sparrowwallet.drongo.protocol.HeaderChainState;
-import com.sparrowwallet.drongo.protocol.HeaderCheckpoints;
 import com.sparrowwallet.sparrow.SparrowWallet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -21,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies the pinned header hashes compiled into drongo against live public Electrum servers. This is a release checklist step rather than a unit
+ * Verifies the application-selected historical checkpoint hashes against live public Electrum servers. This is a release checklist step rather than a unit
  * test - it needs the network and it is checking data, not code - so it is tagged out of the default test task and run with the verifyCheckpoint task.
  * <p>
  * A server that cannot be reached is skipped; a server that answers with a different chain fails the run. Checkpoint generation is a derivation from a
@@ -75,7 +74,7 @@ public class HeaderCheckpointVerificationTest {
     private void verifyCheckpoints(Network network) {
         Network.set(network);
 
-        HeaderCheckpoints checkpoints = network.getHeaderCheckpoints();
+        ChainCheckpoints checkpoints = ChainCheckpoints.get(network);
         org.junit.jupiter.api.Assumptions.assumeTrue(PublicElectrumServer.supportedNetwork(), "No bundled public peers for " + network);
         List<PublicElectrumServer> servers = PublicElectrumServer.getServers();
         assertTrue(!servers.isEmpty(), "No public servers configured for " + network);
@@ -98,7 +97,7 @@ public class HeaderCheckpointVerificationTest {
                 + " are needed to confirm the checkpoints. Unreachable: " + unreachable);
     }
 
-    private void verifyAgainstServer(PublicElectrumServer publicServer, HeaderCheckpoints checkpoints) throws Exception {
+    private void verifyAgainstServer(PublicElectrumServer publicServer, ChainCheckpoints checkpoints) throws Exception {
         try(CloseableTransport transport = publicServer.getServer().getProtocol().getTransport(publicServer.getServer().getHostAndPort())) {
             transport.connect();
             Thread reader = new Thread(() -> {

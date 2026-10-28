@@ -210,7 +210,7 @@ public class ElectrumServerTest {
         try {
             ElectrumServer.serverCapability = new ServerCapability(false, false, false);
             Config.get().setServerType(ServerType.ELECTRUM_SERVER);
-            int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+            int maxCheckpointHeight = ChainCheckpoints.get(Network.MAINNET).getMaxHeight();
             BlockHeader header = Network.MAINNET.getGenesisHeader();
 
             //A tip that has not been announced yet is not evidence of lagging, so the sync and the proofs are left to find out
@@ -246,7 +246,7 @@ public class ElectrumServerTest {
             Config.get().setServerType(ServerType.PUBLIC_ELECTRUM_SERVER);
             assertTrue(ElectrumServer.isVerificationMandatory());
 
-            AppServices.setAnnouncedTip(new ChainTip(Network.MAINNET.getHeaderCheckpoints().getMaxHeight() - 1, Network.MAINNET.getGenesisHeader()));
+            AppServices.setAnnouncedTip(new ChainTip(ChainCheckpoints.get(Network.MAINNET).getMaxHeight() - 1, Network.MAINNET.getGenesisHeader()));
             assertTrue(ElectrumServer.isVerifyingTransactions());
         } finally {
             Config.get().setServerType(previousServerType);
@@ -262,7 +262,7 @@ public class ElectrumServerTest {
      */
     @Test
     public void rejectsAnAnnouncedTipRegressingBelowTheLastPin() {
-        int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+        int maxCheckpointHeight = ChainCheckpoints.get(Network.MAINNET).getMinimumTipHeight();
         try {
             ElectrumServer.updateTipReceived(maxCheckpointHeight);
             assertNotNull(ElectrumServer.getAnnouncedTipValidationError(tip(maxCheckpointHeight - 1, BLOCK_800000_HEADER_HEX)));
@@ -280,7 +280,7 @@ public class ElectrumServerTest {
      */
     @Test
     public void acceptsAnAnnouncedTipFromAServerStillCatchingUp() {
-        int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+        int maxCheckpointHeight = ChainCheckpoints.get(Network.MAINNET).getMinimumTipHeight();
         try {
             //Nothing announced yet, as at the first announcement of a session
             ElectrumServer.tipReachedCheckpoints = false;
@@ -305,7 +305,7 @@ public class ElectrumServerTest {
      */
     @Test
     public void acceptsAnAnnouncedTipFromANewServerBelowTheOneBefore() {
-        int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+        int maxCheckpointHeight = ChainCheckpoints.get(Network.MAINNET).getMinimumTipHeight();
         try {
             ElectrumServer.updateTipReceived(maxCheckpointHeight + 100);
             AppServices.setAnnouncedTip(new ChainTip(maxCheckpointHeight + 100, Network.MAINNET.getGenesisHeader()));

@@ -7,7 +7,7 @@ Mobile REQ-001/002/003 are adapted; REQ-004 is satisfied; REQ-005/007 are platfo
 Preserve application identities, storage paths, packages, serialized formats, user custom servers/explorers, wallet imports, LNURL-auth and desktop signing capabilities. Disable external fees, fiat and upstream update checks even with old saved settings. No data is migrated, deleted or rewritten by a migration. The fork does not promise independent coexistence with Sparrow.
 
 ## Verification and release boundary
-Use Java 25 and pinned submodules; never modify dependency sources. Run regression tests, local build/launch and read-only Purity RPC/history checks. Checkpoint or chain incompatibility blocks live acceptance; do not bypass validation. Signing, notarization, publication and real payments are excluded. Results will be recorded below after verification.
+Use Java 25 and pinned submodules; never modify dependency sources. Run regression tests, local build/launch and read-only Purity RPC/history checks. Checkpoint or chain incompatibility blocks live acceptance; do not bypass validation. Signing, notarization, publication and real payments are excluded. Results are recorded below.
 
 ## Results — 2026-10-28 (Australia/Melbourne)
 
@@ -26,7 +26,7 @@ Use Java 25 and pinned submodules; never modify dependency sources. Run regressi
 - Purity Electrum TLS, `server.version`, header subscription and `blockchain.estimatefee` work. Observed tip: 971147; six-block fee response: 0.00001011 coin/kB.
 - Historical height 800000 header hashes to `00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72728a054`. Its coinbase transaction `b75ca3106ed100521aa50e3ec267a06431c6319538898b25e1b757a5736f5fb4` returns identical raw bytes from Electrum and the Purity explorer.
 
-### Blocking live acceptance
+### Original live-acceptance blocker — resolved by REQ-009 below
 `./gradlew :verifyCheckpoint --tests '*HeaderCheckpointVerificationTest.verifyMainnetCheckpoints'` fails at the pinned height **963647**:
 
 | Source | Block hash |
@@ -34,7 +34,7 @@ Use Java 25 and pinned submodules; never modify dependency sources. Run regressi
 | Pinned upstream dependency | `00000000000000000000d29ee44c13e924c37abcaa80c537609ce70b1fea1f33` |
 | Purity Electrum | `000000000000003e346d906ea62abdf577ede019541e82796f81e243ff907626` |
 
-This is a chain compatibility failure, not a TLS or RPC outage. Full header synchronization and wallet-history acceptance cannot pass with these checkpoints. No dependency source was edited and no verification was disabled. Resolving chain/checkpoint compatibility requires a separately authorized dependency or chain-validation change before production use.
+The original failure was a chain compatibility problem, not a TLS or RPC outage. The unadapted Bitcoin-only validator could not synchronize Purity. No dependency source was edited and no verification was disabled. The authorized application-level resolution and its acceptance evidence are recorded under REQ-009 below.
 
 Windows/Linux installation and execution have not been tested natively on this macOS host; their metadata and assets were checked statically. Hardware tests cover wallet selection and PSBT routing, not a physical device signing session. No real transaction, release signing, notarization, publication or deployment occurred.
 
@@ -44,3 +44,42 @@ Windows/Linux installation and execution have not been tested natively on this m
 The packaged application was launched using an isolated temporary home, `mode=OFFLINE`, `loadRecentWallets=false` and `SPARROW_NO_LOCK_FILE_LINK=true`. The process remained running and was then terminated by its exact temporary-home command-line match. No existing wallet instance was operated. Native UI automation matched another instance sharing the Bundle ID and was not used as evidence; the separate JavaFX rendering/interaction tests provide UI verification.
 
 The build emits existing JEP 493/modular-JAR and module-name warnings. No release signing identity or notarization was used; the existing local launcher patch applies only an ad hoc development signature.
+
+## REQ-009 follow-up — 2026-10-28
+The user authorized an application-owned Purity validation adapter. The original checkpoint failure remains historical evidence; this follow-up replaces the mainnet validation policy without editing dependency sources or disabling checks. Full acceptance results are recorded below.
+
+### REQ-009 implementation and security behavior
+- Application-owned `ChainCheckpoints` caps the mainnet historical prefix at the shared checkpoint 961631. Other networks delegate to the unchanged drongo state validator.
+- `PurityHeaderState` authenticates the packaged eleven-header MTP seed by hash linkage to that common checkpoint. It validates pre-activation targets and exact integer ASERT from 961637 using anchor target at 961632 and anchor-parent time at 961631. Core's activation-only harder-target allowance is retained together with the fixed activation hash.
+- Header linkage, expected difficulty, claimed PoW/powLimit, seeded MTP, a two-hour future bound and true cumulative work above the anchor are enforced before any header is accepted. Merkle and cumulative-work reorg checks remain enabled.
+- Every new Electrum peer must supply the fixed activation header, even with a fully populated local cache. The activation chain is substantiated before the connection's history can proceed.
+- Sync, historical inclusion proofs, reorg candidates and cache replay use the same application-selected profile. Mainnet headers use `headers/purity-mainnet-asert-v1`; old Bitcoin header files are neither trusted nor deleted.
+- Mainnet's initial wallet fetch compares all saved post-fork proofs, including records outside the former 100-block reorg window. Wallet paths and serialized formats remain unchanged.
+
+### Final read-only mainnet acceptance
+Command: `JAVA_HOME=/private/tmp/puritywallet-jdk25/Contents/Home ./gradlew :verifyCheckpoint --tests '*PurityMainnetSyncTest' --console=plain`.
+
+The final adapter passed at **2026-10-28 16:42:52 Australia/Melbourne** (05:42:52 UTC) against `ssl://electrum.bitcoinpurity.org:50002`, Fulcrum 2.1.3 / protocol 1.4.2:
+
+| Check | Result |
+|---|---|
+| Continuous validated range | 961632–971156, **9525 headers** |
+| Announced and locally verified tip hash | `000000000000000061fe16bf6462f70d0879eab9538fe7507e71fed897d5f928` |
+| Activation block 961637 | Fixed Core hash matched |
+| Former conflict at 963647 | Purity hash `000000000000003e346d906ea62abdf577ede019541e82796f81e243ff907626` validated by the forward chain |
+| Accumulated work above common anchor | `2805468777373171182134182` |
+| Cache reload/replay | Same height, hash and accumulated work |
+| Post-fork transaction inclusion | `25b055c20d7bebd9d48a0a22b13b9bc6e355587b61cde954d7630c79bcd8c5c8` proven at 963647 through the application's normal proof path |
+| Negative proof controls | Wrong txid and tampered Merkle branch rejected |
+| Historical lookup | Height 800000 linked to the shared historical checkpoint profile |
+| Verification switches | Transaction verification and mandatory public-server verification remained enabled |
+
+Machine-readable evidence is generated at `build/reports/purity-mainnet-sync.json`. A previous combined build/network run encountered a handshake-response timeout and a duplicate-version error from the legacy retry path; a fresh, separate final connection passed all validation. No timeout or verification rule was relaxed to obtain the passing result.
+
+The previous mainnet checkpoint blocker is resolved. This acceptance validates headers and transaction inclusion; it does not claim full-node transaction-consensus validation, release signing/publication, physical hardware signing, or native Windows/Linux installation.
+
+### Final local and historical checks
+- `JAVA_HOME=/private/tmp/puritywallet-jdk25/Contents/Home ./gradlew :test :desktopTest :jpackageImage --console=plain`: **366 regression tests**, **3 desktop tests**, and the macOS application image passed on the final source.
+- `./gradlew :verifyCheckpoint --tests '*HeaderCheckpointVerificationTest.verifyMainnetCheckpoints'`: passed against the shared historical checkpoint profile, separately from the full forward-sync acceptance above.
+- `jimage list` confirms the packaged runtime contains `ChainCheckpoints`, `HeaderState`, `PurityHeaderState` and `purity/mainnet-anchor.hex`; the packaged launcher reports `PurityWallet 2.5.6`.
+- `git diff --check` passed. drongo and lark source trees remain clean at `13059ebc2979640b30bc1534b4584e2191578672` and `fdcf5a0f0e774bca27a7a08b4e0427465f1dcbac` respectively. No dependency source/commit changes, production deployment, real payment or release publication occurred.

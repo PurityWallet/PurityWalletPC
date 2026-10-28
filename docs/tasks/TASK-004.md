@@ -1,6 +1,6 @@
 # TASK-004: Integration acceptance
 
-Status: Blocked on Purity checkpoint compatibility
+Status: Mainnet acceptance passed — platform limits documented
 
 Requirements: REQ-001/002/003/004/006/008
 
@@ -12,3 +12,5 @@ Write relevant behavior tests before implementation. Record checks and limitatio
 
 ## Results
 See [migration results](../migration-report.md) for tests, build checks and acceptance limits.
+
+The mainnet checkpoint blocker is resolved by [TASK-005](TASK-005.md). Native Windows/Linux installation and physical hardware signing remain outside the verified results.
