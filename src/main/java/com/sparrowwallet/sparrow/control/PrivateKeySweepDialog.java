@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.google.common.base.Throwables;
@@ -416,7 +417,7 @@ public class PrivateKeySweepDialog extends Dialog<Transaction> {
             });
 
             if(Config.get().getServerType() == ServerType.BITCOIN_CORE) {
-                ServiceProgressDialog serviceProgressDialog = new ServiceProgressDialog("Address Scan", "Scanning address for transactions...", new DialogImage(DialogImage.Type.SPARROW), addressUtxosService);
+                ServiceProgressDialog serviceProgressDialog = new ServiceProgressDialog("Address Scan", "Scanning address for transactions...", new DialogImage(DialogImage.Type.PURITYWALLET), addressUtxosService);
                 serviceProgressDialog.initOwner(getDialogPane().getScene().getWindow());
                 AppServices.moveToActiveWindowScreen(serviceProgressDialog);
             }

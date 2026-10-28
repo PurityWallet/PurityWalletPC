@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.csvreader.CsvReader;
@@ -68,7 +69,7 @@ public class SendToManyDialog extends Dialog<List<Payment>> {
         setTitle("Send to Many");
         dialogPane.getStylesheets().add(AppServices.class.getResource("general.css").toExternalForm());
         dialogPane.setHeaderText("Send to many recipients by specifying addresses and amounts.\nOnly the first row's label is necessary.");
-        dialogPane.setGraphic(new DialogImage(DialogImage.Type.SPARROW));
+        dialogPane.setGraphic(new DialogImage(DialogImage.Type.PURITYWALLET));
 
         List<Payment> initialPayments = IntStream.range(0, 100)
                 .mapToObj(i -> i < payments.size() ? payments.get(i) : new Payment(null, null, -1, false)).collect(Collectors.toList());

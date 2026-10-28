@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.ExtendedKey;
@@ -13,7 +14,7 @@ import com.sparrowwallet.drongo.wallet.Keystore;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.drongo.wallet.WalletNode;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.sparrow.net.HeaderChainState;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.sparrow.AppServices;
 import com.sparrowwallet.sparrow.ChainTip;
@@ -210,7 +211,7 @@ public class ElectrumServerTest {
         try {
             ElectrumServer.serverCapability = new ServerCapability(false, false, false);
             Config.get().setServerType(ServerType.ELECTRUM_SERVER);
-            int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+            int maxCheckpointHeight = HeaderCheckpoints.get(Network.MAINNET).getMaxHeight();
             BlockHeader header = Network.MAINNET.getGenesisHeader();
 
             //A tip that has not been announced yet is not evidence of lagging, so the sync and the proofs are left to find out
@@ -246,7 +247,7 @@ public class ElectrumServerTest {
             Config.get().setServerType(ServerType.PUBLIC_ELECTRUM_SERVER);
             assertTrue(ElectrumServer.isVerificationMandatory());
 
-            AppServices.setAnnouncedTip(new ChainTip(Network.MAINNET.getHeaderCheckpoints().getMaxHeight() - 1, Network.MAINNET.getGenesisHeader()));
+            AppServices.setAnnouncedTip(new ChainTip(HeaderCheckpoints.get(Network.MAINNET).getMaxHeight() - 1, Network.MAINNET.getGenesisHeader()));
             assertTrue(ElectrumServer.isVerifyingTransactions());
         } finally {
             Config.get().setServerType(previousServerType);
@@ -262,7 +263,7 @@ public class ElectrumServerTest {
      */
     @Test
     public void rejectsAnAnnouncedTipRegressingBelowTheLastPin() {
-        int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+        int maxCheckpointHeight = HeaderCheckpoints.get(Network.MAINNET).getMaxHeight();
         try {
             ElectrumServer.updateTipReceived(maxCheckpointHeight);
             assertNotNull(ElectrumServer.getAnnouncedTipValidationError(tip(maxCheckpointHeight - 1, BLOCK_800000_HEADER_HEX)));
@@ -280,7 +281,7 @@ public class ElectrumServerTest {
      */
     @Test
     public void acceptsAnAnnouncedTipFromAServerStillCatchingUp() {
-        int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+        int maxCheckpointHeight = HeaderCheckpoints.get(Network.MAINNET).getMaxHeight();
         try {
             //Nothing announced yet, as at the first announcement of a session
             ElectrumServer.tipReachedCheckpoints = false;
@@ -305,7 +306,7 @@ public class ElectrumServerTest {
      */
     @Test
     public void acceptsAnAnnouncedTipFromANewServerBelowTheOneBefore() {
-        int maxCheckpointHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+        int maxCheckpointHeight = HeaderCheckpoints.get(Network.MAINNET).getMaxHeight();
         try {
             ElectrumServer.updateTipReceived(maxCheckpointHeight + 100);
             AppServices.setAnnouncedTip(new ChainTip(maxCheckpointHeight + 100, Network.MAINNET.getGenesisHeader()));

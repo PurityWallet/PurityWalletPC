@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.terminal.settings;
 
 import com.google.common.eventbus.Subscribe;
@@ -223,7 +224,7 @@ public class ServerTestDialog extends DialogWindow {
         } else if(exception instanceof ProxyServerException) {
             reason += ". Check if the proxy server is running.";
         } else if(reason != null && reason.contains("Check if Bitcoin Core is running")) {
-            reason += "\n\nSee https://sparrowwallet.com/docs/connect-node.html";
+            reason += "\n\nSee https://bitcoininstitute.com/PurityWalletPC";
         }
 
         testStatus.setText("Failed");
@@ -234,7 +235,7 @@ public class ServerTestDialog extends DialogWindow {
     public void cormorantSyncStatus(CormorantSyncStatusEvent event) {
         if(connectionService != null && connectionService.isRunning() && event.getProgress() < 100) {
             DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-            appendText("\nThe connection to the Bitcoin Core node was successful, but it is still syncing and cannot be used yet.");
+            appendText("\nThe connection to the Bitcoin Purity Core node was successful, but it is still syncing and cannot be used yet.");
             appendText("\nCurrently " + event.getProgress() + "% completed to date " + dateFormat.format(event.getTip()));
             connectionService.cancel();
         }
@@ -251,7 +252,7 @@ public class ServerTestDialog extends DialogWindow {
     public void bwtSyncStatus(BwtSyncStatusEvent event) {
         if(connectionService != null && connectionService.isRunning() && event.getProgress() < 100) {
             DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-            appendText("\nThe connection to the Bitcoin Core node was successful, but it is still syncing and cannot be used yet.");
+            appendText("\nThe connection to the Bitcoin Purity Core node was successful, but it is still syncing and cannot be used yet.");
             appendText("\nCurrently " + event.getProgress() + "% completed to date " + dateFormat.format(event.getTip()));
             connectionService.cancel();
         }

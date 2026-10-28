@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.io;
 
 import com.csvreader.CsvWriter;
@@ -55,7 +56,7 @@ public class WalletTransactions implements WalletExport {
 
         ExchangeSource exchangeSource = Config.get().getExchangeSource();
         if(Config.get().getExchangeSource() == null) {
-            exchangeSource = ExchangeSource.COINGECKO;
+            exchangeSource = ExchangeSource.NONE;
         }
 
         Currency fiatCurrency = (exchangeSource == ExchangeSource.NONE || !AppServices.onlineProperty().get() ? null : Config.get().getFiatCurrency());

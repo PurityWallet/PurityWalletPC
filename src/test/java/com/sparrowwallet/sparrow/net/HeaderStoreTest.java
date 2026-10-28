@@ -1,9 +1,10 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.OsType;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.drongo.protocol.HeaderCheckpoints;
+import com.sparrowwallet.sparrow.net.HeaderCheckpoints;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.VerificationException;
 import com.sparrowwallet.sparrow.SparrowWallet;
@@ -317,7 +318,7 @@ public class HeaderStoreTest {
     }
 
     private static HeaderCheckpoints checkpoints() {
-        HeaderCheckpoints checkpoints = Network.REGTEST.getHeaderCheckpoints();
+        HeaderCheckpoints checkpoints = HeaderCheckpoints.get(Network.REGTEST);
         assertEquals(0, checkpoints.getMaxHeight());
 
         return checkpoints;

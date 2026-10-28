@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.io;
 
 import com.google.common.io.ByteStreams;
@@ -121,7 +122,7 @@ public class ColdcardMultisigTest extends IoTest {
         byte[] exportedBytes = baos.toByteArray();
         String original = new String(walletBytes);
         String exported = new String(exportedBytes);
-        Assertions.assertEquals(original.replaceAll("created on [0-9A-F]+", ""), exported.replace("created by Sparrow", ""));
+        Assertions.assertEquals(original.replaceAll("created on [0-9A-F]+", ""), exported.replace("created by PurityWallet", ""));
     }
 
     @Test
@@ -134,7 +135,7 @@ public class ColdcardMultisigTest extends IoTest {
         byte[] exportedBytes = baos.toByteArray();
         String original = new String(walletBytes);
         String exported = new String(exportedBytes);
-        Assertions.assertEquals(original.replaceAll("Exported from Electrum", ""), exported.replace("Coldcard Multisig setup file (created by Sparrow)\n#", ""));
+        Assertions.assertEquals(original.replaceAll("Exported from Electrum", ""), exported.replace("Coldcard Multisig setup file (created by PurityWallet)\n#", ""));
     }
 
     @AfterEach

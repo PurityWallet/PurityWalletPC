@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.io;
 
 import com.sparrowwallet.drongo.ExtendedKey;
@@ -41,7 +42,7 @@ public class ElectrumPersonalServer implements WalletExport {
         try {
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
             writer.write("# Electrum Personal Server configuration file fragments\n");
-            writer.write("# First close Sparrow and edit your config file in Sparrow home to set \"legacyServer\": true\n");
+            writer.write("# First close PurityWallet and edit your config file in PurityWallet home to set \"legacyServer\": true\n");
             writer.write("# Then copy the lines below into the relevant sections in your EPS config.ini file\n\n");
             writer.write("# Copy into [master-public-keys] section\n");
             Wallet masterWallet = wallet.isMasterWallet() ? wallet : wallet.getMasterWallet();

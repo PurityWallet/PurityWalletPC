@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.control;
 
 import com.sparrowwallet.sparrow.AppServices;
@@ -29,7 +30,7 @@ public class TextfieldDialog extends Dialog<String> {
         final DialogPane dialogPane = getDialogPane();
         setDialogPane(dialogPane);
 
-        dialogPane.setGraphic(new DialogImage(DialogImage.Type.SPARROW));
+        dialogPane.setGraphic(new DialogImage(DialogImage.Type.PURITYWALLET));
 
         HBox hbox = new HBox();
         this.textField = new TextField(defaultValue);

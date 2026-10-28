@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -5,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.arteam.simplejsonrpc.client.Transport;
-import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.sparrow.net.HeaderChainState;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.VerificationException;
 import com.sparrowwallet.drongo.wallet.BlockTransaction;

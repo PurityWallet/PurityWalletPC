@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow;
 
 import com.sparrowwallet.sparrow.control.UnlabeledToggleSwitch;
@@ -81,7 +82,7 @@ public class WelcomeController {
             welcomeBox.getStyleClass().clear();
             welcomeBox.getStyleClass().add("bitcoin-core");
             serverToggle.setSelected(true);
-            serverStatus.setText("Connected to Bitcoin Core (demonstration only)");
+            serverStatus.setText("Connected to Bitcoin Purity Core (demonstration only)");
             return true;
         }
 
@@ -128,7 +129,7 @@ public class WelcomeController {
             welcomeBox.getStyleClass().clear();
             welcomeBox.getStyleClass().add("bitcoin-core");
             serverToggle.setSelected(true);
-            serverStatus.setText("Connected to Bitcoin Core (demonstration only)");
+            serverStatus.setText("Connected to Bitcoin Purity Core (demonstration only)");
             return true;
         }
 

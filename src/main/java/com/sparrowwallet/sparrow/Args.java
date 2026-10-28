@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow;
 
 import com.beust.jcommander.Parameter;
@@ -10,7 +11,7 @@ import java.util.List;
 
 @Parameters(separators = "=")
 public class Args {
-    @Parameter(names = { "--dir", "-d" }, description = "Path to Sparrow home folder")
+    @Parameter(names = { "--dir", "-d" }, description = "Path to PurityWallet home folder")
     public String dir;
 
     @Parameter(names = { "--network", "-n" }, description = "Network to use")

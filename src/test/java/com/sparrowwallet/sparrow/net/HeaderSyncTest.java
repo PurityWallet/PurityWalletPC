@@ -1,3 +1,4 @@
+// Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
 import com.github.arteam.simplejsonrpc.client.Transport;
@@ -5,7 +6,7 @@ import com.google.common.net.HostAndPort;
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.protocol.BlockHeader;
-import com.sparrowwallet.drongo.protocol.HeaderChainState;
+import com.sparrowwallet.sparrow.net.HeaderChainState;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.VerificationException;
 import com.sparrowwallet.sparrow.AppServices;
@@ -590,7 +591,7 @@ public class HeaderSyncTest {
         assertEquals(32250, fake.getLastStartHeight());
         assertEquals(6, fake.getLastCount());
         assertEquals(1, fake.getChunkRequests());
-        assertEquals(Network.MAINNET.getHeaderCheckpoints().getHash(32255), ElectrumServer.verifiedHistoricalHeaders.get(32255).getHash());
+        assertEquals(HeaderCheckpoints.get(Network.MAINNET).getHash(32255), ElectrumServer.verifiedHistoricalHeaders.get(32255).getHash());
 
         //A second height inside the range it already holds costs nothing
         assertEquals(PERIOD_15_CLOSE.get(5).getHash(), new ElectrumServer().getVerifiedHeader(32253).getHash());
@@ -607,7 +608,7 @@ public class HeaderSyncTest {
 
         BlockHeader verified = new ElectrumServer().getVerifiedHeader(32255);
 
-        assertEquals(Network.MAINNET.getHeaderCheckpoints().getHash(32255), verified.getHash());
+        assertEquals(HeaderCheckpoints.get(Network.MAINNET).getHash(32255), verified.getHash());
         assertEquals(32255, fake.getLastStartHeight());
         assertEquals(1, fake.getLastCount());
     }
@@ -700,7 +701,7 @@ public class HeaderSyncTest {
         Network.set(Network.MAINNET);
         FakeElectrumServerRpc fake = serveFrom(PERIOD_15_CLOSE, 32248);
 
-        int maxHeight = Network.MAINNET.getHeaderCheckpoints().getMaxHeight();
+        int maxHeight = HeaderCheckpoints.get(Network.MAINNET).getMaxHeight();
         new ElectrumServer().prefetchVerifiedHeaders(List.of(0, maxHeight + 1, maxHeight + 5000));
 
         assertEquals(0, fake.getChunkRequests());
@@ -798,7 +799,7 @@ public class HeaderSyncTest {
         try {
             FakeElectrumServerRpc fake = serve(List.of());
             fake.setFailure(new UnsupportedMethodException("blockchain.block.headers", new IllegalStateException()));
-            ChainTip tip = new ChainTip(Network.MAINNET.getHeaderCheckpoints().getMaxHeight() + 10, Network.MAINNET.getGenesisHeader());
+            ChainTip tip = new ChainTip(HeaderCheckpoints.get(Network.MAINNET).getMaxHeight() + 10, Network.MAINNET.getGenesisHeader());
 
             ElectrumServer.serverCapability = new ServerCapability(false, false, false);
             Config.get().setServerType(ServerType.PUBLIC_ELECTRUM_SERVER);
