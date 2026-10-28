@@ -430,7 +430,8 @@ static def getDirectorySize(File directory) {
 }
 
 tasks.register('removeGroupWritePermission', Exec) {
-    dependsOn tasks.jpackageImage
+    // Rebuilding jpackageImage here can delete installers produced by the preceding CI step.
+    mustRunAfter tasks.jpackageImage, tasks.jpackage
     commandLine 'chmod', '-R', 'g-w', "$buildDir/jpackage/puritywallet"
 }
 
