@@ -226,7 +226,7 @@ public class CoinTreeTable extends TreeTableView<Entry> {
 
     private WalletTable.Sort getColumnSort() {
         if(getSortOrder().isEmpty() || !getColumns().contains(getSortOrder().getFirst())) {
-            return new WalletTable.Sort(tableType == TableType.UTXOS ? getColumns().size() - 1 : 0, SortDirection.DESCENDING);
+            return new WalletTable.Sort(tableType == TableType.UTXOS ? getColumns().indexOf(getTreeColumn()) : 0, SortDirection.DESCENDING);
         }
 
         return new WalletTable.Sort(getColumns().indexOf(getSortOrder().getFirst()), getSortDirection(getSortOrder().getFirst().getSortType()));

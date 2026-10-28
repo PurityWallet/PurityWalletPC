@@ -23,7 +23,7 @@ class PurityChainTest {
     @Test
     void productIdentityAndPublicEndpoints() {
         assertEquals("PurityWallet", SparrowWallet.APP_NAME);
-        assertEquals("1.0.0b", SparrowWallet.APP_VERSION + SparrowWallet.APP_VERSION_SUFFIX);
+        assertEquals("1.0.0b3", SparrowWallet.APP_VERSION + SparrowWallet.APP_VERSION_SUFFIX);
         assertEquals("puritywallet", SparrowWallet.APP_ID);
         assertEquals("puritywallet.home", SparrowWallet.APP_HOME_PROPERTY);
         assertEquals("PURITYWALLET_NETWORK", SparrowWallet.NETWORK_ENV_PROPERTY);

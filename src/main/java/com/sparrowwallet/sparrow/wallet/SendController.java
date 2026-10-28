@@ -69,6 +69,12 @@ public class SendController extends WalletFormController implements Initializabl
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @FXML
+    private LegacyReplayWarning legacyReplayWarning;
+
+    private LegacyUtxoChecker.CheckService legacyCheck;
+    private final LegacyReplayGuard legacyReplayGuard = new LegacyReplayGuard();
+
+    @FXML
     private TabPane paymentTabs;
 
     @FXML
@@ -401,6 +407,7 @@ public class SendController extends WalletFormController implements Initializabl
         });
 
         walletTransactionProperty.addListener((observable, oldValue, walletTransaction) -> {
+            checkLegacyInputs(walletTransaction);
             setEffectiveFeeRate(walletTransaction);
             if(walletTransaction != null) {
                 setPayments(walletTransaction.getPayments().stream().filter(payment -> payment.getType() != Payment.Type.FAKE_MIX).collect(Collectors.toList()));
@@ -901,6 +908,32 @@ public class SendController extends WalletFormController implements Initializabl
         setFeeRatePriority(feeRateAmt);
     }
 
+    private void checkLegacyInputs(WalletTransaction transaction) {
+        if(legacyCheck != null) {
+            legacyCheck.cancel();
+        }
+        if(transaction == null || Network.get() != Network.MAINNET) {
+            legacyReplayWarning.setStatus(LegacyUtxoChecker.Status.ABSENT);
+            return;
+        }
+        List<LegacyUtxoChecker.Utxo> inputs = transaction.getSelectedUtxos().entrySet().stream()
+                .map(entry -> LegacyUtxoChecker.Utxo.from(entry.getKey(), entry.getValue())).toList();
+        legacyReplayWarning.setStatus(LegacyUtxoChecker.Status.CHECKING);
+        LegacyUtxoChecker.CheckService service = new LegacyUtxoChecker.CheckService(inputs);
+        legacyCheck = service;
+        service.setOnSucceeded(event -> {
+            if(legacyCheck == service && walletTransactionProperty.get() == transaction) {
+                legacyReplayWarning.setStatus(LegacyUtxoChecker.summarize(inputs, service.getValue()));
+            }
+        });
+        service.setOnFailed(event -> {
+            if(legacyCheck == service && walletTransactionProperty.get() == transaction) {
+                legacyReplayWarning.setStatus(LegacyUtxoChecker.Status.UNKNOWN);
+            }
+        });
+        service.start();
+    }
+
     private void setEffectiveFeeRate(WalletTransaction walletTransaction) {
         List<BlockTransaction> unconfirmedUtxoTxs = walletTransaction == null ? Collections.emptyList() :
                 walletTransaction.getSelectedUtxos().keySet().stream().filter(ref -> ref.getHeight() <= 0)
@@ -1227,6 +1260,15 @@ public class SendController extends WalletFormController implements Initializabl
     }
 
     public void broadcastNotification(ActionEvent event) {
+        WalletTransaction snapshot = walletTransactionProperty.get();
+        if(snapshot != null) {
+            List<LegacyUtxoChecker.Utxo> inputs = snapshot.getSelectedUtxos().entrySet().stream()
+                    .map(entry -> LegacyUtxoChecker.Utxo.from(entry.getKey(), entry.getValue())).toList();
+            legacyReplayGuard.check(inputs, () -> walletTransactionProperty.get() == snapshot, notificationButton, () -> broadcastNotification(snapshot));
+        }
+    }
+
+    private void broadcastNotification(WalletTransaction snapshot) {
         Wallet wallet = getWalletForm().getWallet();
         Storage storage = AppServices.get().getOpenWallets().get(wallet);
         if(wallet.isEncrypted()) {
@@ -1238,7 +1280,7 @@ public class SendController extends WalletFormController implements Initializabl
                 decryptWalletService.setOnSucceeded(workerStateEvent -> {
                     EventManager.get().post(new StorageEvent(storage.getWalletId(wallet), TimedEvent.Action.END, "Done"));
                     Wallet decryptedWallet = decryptWalletService.getValue();
-                    broadcastNotification(decryptedWallet);
+                    broadcastNotification(decryptedWallet, snapshot);
                     decryptedWallet.clearPrivate();
                 });
                 decryptWalletService.setOnFailed(workerStateEvent -> {
@@ -1249,15 +1291,17 @@ public class SendController extends WalletFormController implements Initializabl
                 decryptWalletService.start();
             }
         } else {
-            broadcastNotification(wallet);
+            broadcastNotification(wallet, snapshot);
         }
     }
 
-    public void broadcastNotification(Wallet decryptedWallet) {
+    private void broadcastNotification(Wallet decryptedWallet, WalletTransaction walletTransaction) {
+        if(walletTransactionProperty.get() != walletTransaction) {
+            return;
+        }
         try {
             PaymentCode paymentCode = decryptedWallet.isMasterWallet() ? decryptedWallet.getPaymentCode() : decryptedWallet.getMasterWallet().getPaymentCode();
             PaymentCode externalPaymentCode = paymentCodeProperty.get();
-            WalletTransaction walletTransaction = walletTransactionProperty.get();
             WalletNode input0Node = walletTransaction.getSelectedUtxos().entrySet().iterator().next().getValue();
             Keystore keystore = input0Node.getWallet().isNested() ? decryptedWallet.getChildWallet(input0Node.getWallet().getName()).getKeystores().get(0) : decryptedWallet.getKeystores().get(0);
             ECKey input0Key = keystore.getKey(input0Node);
@@ -1277,6 +1321,10 @@ public class SendController extends WalletFormController implements Initializabl
             TransactionParameters params = new TransactionParameters(utxoSelectors, getTxoFilters(), walletTransaction.getPayments(), List.of(blindedPaymentCode),
                     excludedChangeNodes, feeRate, getMinimumFeeRate(), minRelayFeeRate, userFee, currentBlockHeight, groupByAddress, includeMempoolOutputs, true);
             WalletTransaction finalWalletTx = decryptedWallet.createWalletTransaction(params);
+            if(!finalWalletTx.getSelectedUtxos().keySet().equals(walletTransaction.getSelectedUtxos().keySet())) {
+                AppServices.showErrorDialog("Inputs changed", "The notification inputs changed. Review the selected inputs and try again.");
+                return;
+            }
             PSBT psbt = finalWalletTx.createPSBT();
             decryptedWallet.sign(psbt);
             decryptedWallet.finalise(psbt);
@@ -1687,10 +1735,16 @@ public class SendController extends WalletFormController implements Initializabl
 
     @Subscribe
     public void connection(ConnectionEvent event) {
+        checkLegacyInputs(walletTransactionProperty.get());
         if(!Objects.equals(event.getMinimumRelayFeeRate(), event.getPreviousMinimumRelayFeeRate())) {
             feeRange.updateFeeRange(event.getMinimumRelayFeeRate(), event.getPreviousMinimumRelayFeeRate());
             updateTransaction();
         }
+    }
+
+    @Subscribe
+    public void legacyDisconnected(DisconnectionEvent event) {
+        checkLegacyInputs(walletTransactionProperty.get());
     }
 
     @Subscribe

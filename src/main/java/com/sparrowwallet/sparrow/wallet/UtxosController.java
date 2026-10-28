@@ -4,6 +4,7 @@ import com.csvreader.CsvWriter;
 import com.google.common.eventbus.Subscribe;
 import com.sparrowwallet.drongo.BitcoinUnit;
 import com.sparrowwallet.drongo.OsType;
+import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.wallet.*;
 import com.sparrowwallet.sparrow.UnitFormat;
 import com.sparrowwallet.sparrow.AppServices;
@@ -14,6 +15,7 @@ import com.sparrowwallet.sparrow.glyphfont.FontAwesome5;
 import com.sparrowwallet.sparrow.io.Config;
 import com.sparrowwallet.sparrow.io.WalletTransactions;
 import com.sparrowwallet.sparrow.net.ExchangeSource;
+import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.event.ActionEvent;
@@ -39,6 +41,8 @@ import java.util.stream.Collectors;
 public class UtxosController extends WalletFormController implements Initializable {
     private static final Logger log = LoggerFactory.getLogger(UtxosController.class);
 
+    private LegacyUtxoChecker.CheckService legacyCheck;
+
     @FXML
     private CopyableCoinLabel balance;
 
@@ -56,6 +60,9 @@ public class UtxosController extends WalletFormController implements Initializab
 
     @FXML
     private UtxosTreeTable utxosTable;
+
+    @FXML
+    private Button recheckLegacy;
 
     @FXML
     private Button selectAll;
@@ -87,6 +94,9 @@ public class UtxosController extends WalletFormController implements Initializab
         updateFields(walletUtxosEntry);
         utxosTable.initialize(walletUtxosEntry);
         utxosChart.initialize(walletUtxosEntry);
+        recheckLegacy.setVisible(Network.get() == Network.MAINNET);
+        recheckLegacy.managedProperty().bind(recheckLegacy.visibleProperty());
+        checkLegacyUtxos();
 
         clear.setDisable(true);
         sendSelected.setDisable(true);
@@ -98,6 +108,46 @@ public class UtxosController extends WalletFormController implements Initializab
             updateButtons(Config.get().getUnitFormat(), Config.get().getBitcoinUnit());
             updateUtxoCount(getWalletForm().getWalletUtxosEntry());
         });
+    }
+
+    @FXML
+    public void checkLegacyUtxos() {
+        if(Network.get() != Network.MAINNET || walletForm == null) {
+            return;
+        }
+        if(legacyCheck != null) {
+            legacyCheck.cancel();
+        }
+        List<UtxoEntry> entries = walletForm.getWalletUtxosEntry().getChildren().stream().map(UtxoEntry.class::cast).toList();
+        entries.forEach(entry -> entry.legacyStatusProperty().set(AppServices.onlineProperty().get() ? LegacyUtxoChecker.Status.CHECKING : LegacyUtxoChecker.Status.UNKNOWN));
+        if(entries.isEmpty()) {
+            return;
+        }
+        List<LegacyUtxoChecker.Utxo> inputs = entries.stream().map(entry -> LegacyUtxoChecker.Utxo.from(entry.getHashIndex(), entry.getNode())).toList();
+        LegacyUtxoChecker.CheckService service = new LegacyUtxoChecker.CheckService(inputs);
+        legacyCheck = service;
+        service.setOnSucceeded(event -> {
+            if(legacyCheck == service) {
+                entries.forEach(entry -> entry.legacyStatusProperty().set(service.getValue().getOrDefault(
+                        LegacyUtxoChecker.Utxo.from(entry.getHashIndex(), entry.getNode()), LegacyUtxoChecker.Status.UNKNOWN)));
+            }
+        });
+        service.setOnFailed(event -> {
+            if(legacyCheck == service) {
+                entries.forEach(entry -> entry.legacyStatusProperty().set(LegacyUtxoChecker.Status.UNKNOWN));
+            }
+        });
+        service.start();
+    }
+
+    @Subscribe
+    public void legacyConnectionChanged(ConnectionEvent event) {
+        checkLegacyUtxos();
+    }
+
+    @Subscribe
+    public void legacyDisconnected(DisconnectionEvent event) {
+        checkLegacyUtxos();
     }
 
     private void updateFields(WalletUtxosEntry walletUtxosEntry) {
@@ -230,6 +280,7 @@ public class UtxosController extends WalletFormController implements Initializab
             updateFields(walletUtxosEntry);
             utxosTable.updateAll(walletUtxosEntry);
             utxosChart.update(walletUtxosEntry);
+            checkLegacyUtxos();
         }
     }
 
@@ -250,6 +301,7 @@ public class UtxosController extends WalletFormController implements Initializab
             updateFields(walletUtxosEntry);
             utxosTable.updateHistory();
             utxosChart.update(walletUtxosEntry);
+            checkLegacyUtxos();
         }
     }
 

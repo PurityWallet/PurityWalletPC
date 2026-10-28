@@ -25,6 +25,7 @@
 <?import com.sparrowwallet.sparrow.wallet.FeeRatesSelection?>
 <?import com.sparrowwallet.sparrow.wallet.OptimizationStrategy?>
 <?import com.sparrowwallet.sparrow.control.HelpLabel?>
+<?import com.sparrowwallet.sparrow.control.LegacyReplayWarning?>
 <?import com.sparrowwallet.sparrow.control.FeeRangeSlider?>
 <?import com.sparrowwallet.sparrow.control.RecentBlocksView?>
 
@@ -152,6 +153,9 @@
                     <RecentBlocksView fx:id="recentBlocksView" styleClass="feeRatesChart" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="74" translateY="30" minHeight="135"/>
                 </AnchorPane>
             </GridPane>
+            <LegacyReplayWarning fx:id="legacyReplayWarning">
+                <VBox.margin><Insets left="25" right="25" top="10" /></VBox.margin>
+            </LegacyReplayWarning>
             <StackPane VBox.vgrow="SOMETIMES">
                 <TransactionDiagram fx:id="transactionDiagram" />
             </StackPane>

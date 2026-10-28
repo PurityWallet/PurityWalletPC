@@ -21,3 +21,18 @@
 .tree-table-view:focused:row-selection .tree-table-row-cell:selected .freeze-dust-utxo {
     -fx-text-fill: derive(white, -15%);
 }
+.legacy-shared {
+    -fx-font-weight: bold;
+    -fx-text-fill: #b83b20;
+    -fx-background-color: rgba(230, 108, 45, 0.18);
+}
+
+.legacy-unknown {
+    -fx-font-weight: bold;
+    -fx-text-fill: #b57910;
+}
+
+.tree-table-view:focused:row-selection .tree-table-row-cell:selected .legacy-shared,
+.tree-table-view:focused:row-selection .tree-table-row-cell:selected .legacy-unknown {
+    -fx-text-fill: white;
+}

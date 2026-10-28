@@ -9,8 +9,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 class PackagingTest(unittest.TestCase):
     def test_beta_release_version(self):
         build = (ROOT / "build.gradle").read_text()
-        self.assertIn("version = '1.0.0b'", build)
-        self.assertIn("appVersion = version.toString().replaceFirst(/b$/, '')", build)
+        self.assertIn("version = '1.0.0b3'", build)
+        self.assertIn("appVersion = version.toString().replaceFirst(/b[0-9]*$/, '')", build)
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as stream:
             info = plistlib.load(stream)
         self.assertEqual("1.0.0", info["CFBundleShortVersionString"])
