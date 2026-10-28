@@ -3,7 +3,7 @@
 ## Identity and artwork
 
 Full and short name: **PurityWallet**. Command: `puritywallet`.
-Release version: **1.0.0b**. Use **1.0.0** in native installer and bundle fields that require numeric versions.
+Release version: **1.0.0b3**. Use **1.0.0** in native installer and bundle fields that require numeric versions.
 Website: https://bitcoininstitute.com/PurityWalletPC.
 
 Retain internal Java package names and compatible third-party import identifiers.
@@ -33,7 +33,7 @@ Use multi-resolution PurityWallet icons in macOS ICNS, Windows ICO and Linux PNG
 
 All project documentation, including requirements, architecture, API contracts, migration reports and task records, is written in English.
 
-Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.0.0b`; MSI product metadata uses numeric version `1.0.0`.
+Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.0.0b3`; MSI product metadata uses numeric version `1.0.0`.
 
 # Product specification
 
@@ -69,3 +69,6 @@ Fresh and reset defaults offer only Purity services. Explicit custom connections
 
 ## REQ-009: Purity mainnet header verification — adopted
 Adapt mainnet validation in this application without changing dependency sources or disabling verification. Use the common checkpoint at 961631 and the consensus-pinned Purity activation block at 961637. Validate the pre-activation headers against the shared target and subsequent headers against Purity Core ASERT (anchor 961632, anchor-parent time at 961631, spacing 600 seconds, half-life 86400 seconds). Preserve Core's activation-only harder-target allowance alongside the exact activation hash. Enforce linkage, claimed PoW/powLimit, seeded eleven-header MTP, future-time bound, Merkle inclusion and cumulative-work reorg checks. Historical proof anchors must come from the same application profile. On first wallet fetch, recheck every stored proof above 961631, including records older than the recent reorg window. Isolate only the mainnet header cache by chain/version; preserve wallet paths and identities. Non-mainnet validation delegates to the unchanged dependency. Complete offline regression, full live header synchronization/replay and transaction-proof acceptance before removing the recorded blocker.
+
+## REQ-011: Legacy-chain UTXO and replay warnings
+On mainnet, check every UTXO against the Bitcoin legacy chain. Mark an output as shared only when txid, output index, amount and script match an unspent legacy output. Show a prominent warning for each shared output and distinguish checking and unavailable results. On Send, check the actual transaction inputs after coin selection (including automatic selection). Warn clearly when all inputs are shared. Require explicit acknowledgement of replay risk before signing or broadcasting; cancellation must stop the action. An unavailable or malformed check must remain unknown and require an explicit risk acknowledgement to continue. Recheck before protected actions, discard stale results after input/transaction changes, respect offline mode and the configured proxy, and keep regtest free of legacy-mainnet requests. Use the mobile wallet's read-only mempool.space API approach without changing dependency sources or wallet formats.

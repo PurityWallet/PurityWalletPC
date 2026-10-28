@@ -4,6 +4,7 @@ import com.sparrowwallet.drongo.KeyPurpose;
 import com.sparrowwallet.drongo.address.Address;
 import com.sparrowwallet.drongo.protocol.TransactionInput;
 import com.sparrowwallet.drongo.wallet.*;
+import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
@@ -16,6 +17,12 @@ import java.util.stream.Collectors;
 
 public class UtxoEntry extends HashIndexEntry {
     private final WalletNode node;
+    private final ObjectProperty<LegacyUtxoChecker.Status> legacyStatus = new SimpleObjectProperty<>(LegacyUtxoChecker.Status.UNKNOWN);
+
+    public ObjectProperty<LegacyUtxoChecker.Status> legacyStatusProperty() {
+        return legacyStatus;
+    }
+
 
     public UtxoEntry(Wallet wallet, BlockTransactionHashIndex hashIndex, Type type, WalletNode node) {
         super(wallet, hashIndex, type, node.getKeyPurpose());

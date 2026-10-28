@@ -13,7 +13,7 @@ and signed releases must be verified separately for each PurityWallet release.
 ### Install Java
 
 Because PurityWallet bundles a Java runtime in the release binaries, it is essential to have the same version of Java installed when creating the release.
-The inherited Sparrow build used Eclipse Temurin 18.0.1+10 for Sparrow v1.6.6 through v1.9.1, and 22.0.2+9 for Sparrow v2.0.0 through v2.3.1. PurityWallet 1.0.0b uses Eclipse Temurin 25.0.2+10.
+The inherited Sparrow build used Eclipse Temurin 18.0.1+10 for Sparrow v1.6.6 through v1.9.1, and 22.0.2+9 for Sparrow v2.0.0 through v2.3.1. PurityWallet 1.0.0b3 uses Eclipse Temurin 25.0.2+10.
 
 Note: Do not install Java using a system package manager (e.g. apt, dnf, rpm). 
 Linux packages replace the JDK's bundled `cacerts` file with a symlink to the system CA certificates, which differ from those in the release tarballs and will produce a non-reproducible build.
@@ -119,7 +119,7 @@ python src/test/packaging_test.py
 ./gradlew :test :jpackage
 ```
 
-The Windows-only workflow is `.github/workflows/windows-package.yaml`. It runs on `windows-2022`, tests the project, builds an MSI, installs it on the disposable runner and checks the installed `puritywallet.exe --version` output. It uploads `puritywallet-1.0.0b-windows-x64.msi` and its SHA-256 file. MSI product metadata uses numeric version `1.0.0`. The installer is not Authenticode-signed.
+The Windows-only workflow is `.github/workflows/windows-package.yaml`. It runs on `windows-2022`, tests the project, builds an MSI, installs it on the disposable runner and checks the installed `puritywallet.exe --version` output. It uploads `puritywallet-1.0.0b3-windows-x64.msi` and its SHA-256 file. MSI product metadata uses numeric version `1.0.0`. The installer is not Authenticode-signed.
 
 A push to `codex/puritywallet-windows-1.0.0b` starts this build; it can also be dispatched manually once the workflow is registered on the repository's default branch. Publishing the current local changes to GitHub requires user approval before any push. The workflow does not create a public release or merge changes.
 

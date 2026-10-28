@@ -3,7 +3,11 @@ package com.sparrowwallet.sparrow.control;
 import com.sparrowwallet.drongo.wallet.TableType;
 import com.sparrowwallet.sparrow.wallet.*;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import com.sparrowwallet.drongo.Network;
+import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
 import javafx.scene.control.SelectionMode;
+import javafx.scene.control.TreeTableCell;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeTableColumn;
 
 import java.util.Comparator;
@@ -84,10 +88,43 @@ public class UtxosTreeTable extends CoinTreeTable {
         getColumns().add(amountCol);
         setTreeColumn(amountCol);
 
+        if(Network.get() == Network.MAINNET) {
+            TreeTableColumn<Entry, LegacyUtxoChecker.Status> legacyCol = new TreeTableColumn<>("Legacy chain");
+            legacyCol.setCellValueFactory(param -> ((UtxoEntry)param.getValue().getValue()).legacyStatusProperty());
+            legacyCol.setCellFactory(column -> new TreeTableCell<>() {
+                @Override
+                protected void updateItem(LegacyUtxoChecker.Status status, boolean empty) {
+                    super.updateItem(status, empty);
+                    getStyleClass().removeAll("legacy-shared", "legacy-unknown");
+                    setText(null);
+                    setTooltip(null);
+                    if(!empty && status != null) {
+                        setText(switch(status) {
+                            case SHARED -> "⚠ Replay risk";
+                            case ABSENT -> "Not shared";
+                            case UNKNOWN -> "⚠ Unknown";
+                            case CHECKING -> "Checking...";
+                        });
+                        setTooltip(new Tooltip(switch(status) {
+                            case SHARED -> "Matching unspent output exists on the legacy Bitcoin chain. Spending it may also spend your legacy-chain coins.";
+                            case ABSENT -> "No matching unspent output was found by the legacy-chain service at the time of this check.";
+                            case UNKNOWN -> "Legacy-chain check unavailable. Replay risk is unknown.";
+                            case CHECKING -> "Checking the output on the legacy Bitcoin chain...";
+                        }));
+                        if(status == LegacyUtxoChecker.Status.SHARED || status == LegacyUtxoChecker.Status.UNKNOWN) {
+                            getStyleClass().add(status == LegacyUtxoChecker.Status.SHARED ? "legacy-shared" : "legacy-unknown");
+                        }
+                    }
+                }
+            });
+            legacyCol.setMinWidth(125);
+            getColumns().add(legacyCol);
+        }
+
         setPlaceholder(getDefaultPlaceholder(rootEntry.getWallet()));
         setEditable(true);
         setupColumnWidths();
-        setupColumnSort(getColumns().size() - 1, TreeTableColumn.SortType.DESCENDING);
+        setupColumnSort(getColumns().indexOf(amountCol), TreeTableColumn.SortType.DESCENDING);
 
         getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
     }

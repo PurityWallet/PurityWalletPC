@@ -26,6 +26,7 @@ import com.sparrowwallet.sparrow.io.Device;
 import com.sparrowwallet.sparrow.io.bbqr.BBQR;
 import com.sparrowwallet.sparrow.io.bbqr.BBQRType;
 import com.sparrowwallet.sparrow.net.ElectrumServer;
+import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
 import com.sparrowwallet.sparrow.io.Storage;
 import com.sparrowwallet.sparrow.payjoin.Payjoin;
 import com.sparrowwallet.sparrow.wallet.Entry;
@@ -71,6 +72,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
 
 import static com.sparrowwallet.sparrow.AppServices.showErrorDialog;
 
@@ -90,6 +94,7 @@ public class HeadersController extends TransactionFormController implements Init
     private static final double FEE_MULTIPLE_LIMIT = 100d;
 
     private HeadersForm headersForm;
+    private final LegacyReplayGuard legacyReplayGuard = new LegacyReplayGuard();
 
     //The txid:height last asked about, so that a redraw does not ask again, and the request that asked it
     private String verificationRequestedPair;
@@ -1173,6 +1178,10 @@ public class HeadersController extends TransactionFormController implements Init
     }
 
     private void signFromSeed(DeterministicSeed seed) {
+        checkLegacyReplay(signButton, isCurrent -> signFromSeedAfterReplayCheck(seed, isCurrent)).whenComplete((accepted, error) -> seed.clear());
+    }
+
+    private void signFromSeedAfterReplayCheck(DeterministicSeed seed, BooleanSupplier isCurrent) {
         try {
             String masterFingerprint = Keystore.fromSeed(seed, PolicyType.SINGLE_HD, ScriptType.P2PKH.getDefaultDerivation()).getKeyDerivation().getMasterFingerprint();
             Wallet walletCopy = headersForm.getSigningWallet().copy();
@@ -1186,7 +1195,7 @@ public class HeadersController extends TransactionFormController implements Init
                 Keystore original = walletCopy.getKeystores().get(optIndex.getAsInt());
                 Keystore replacement = Keystore.fromSeed(seed, walletCopy.getPolicyType(), original.getKeyDerivation().getDerivation());
                 walletCopy.getKeystores().set(optIndex.getAsInt(), replacement);
-                signUnencryptedKeystores(walletCopy);
+                signUnencryptedKeystores(walletCopy, isCurrent);
             } else {
                 AppServices.showErrorDialog("Invalid seed", "The QR code contains a seed that does not match any of the keystores in the signing wallet.");
             }
@@ -1239,11 +1248,26 @@ public class HeadersController extends TransactionFormController implements Init
     }
 
     public void signPSBT(ActionEvent event) {
-        signSoftwareKeystores();
-        signDeviceKeystores();
+        checkLegacyReplay(signButton, isCurrent -> {
+            signSoftwareKeystores(isCurrent);
+            signDeviceKeystores(isCurrent);
+        });
     }
 
-    private void signSoftwareKeystores() {
+    private CompletableFuture<Boolean> checkLegacyReplay(Node button, Consumer<BooleanSupplier> approved) {
+        Transaction transaction = headersForm.getTransaction();
+        PSBT psbt = headersForm.getPsbt();
+        Wallet wallet = headersForm.getSigningWallet();
+        byte[] snapshot = transaction.bitcoinSerialize();
+        List<LegacyUtxoChecker.Utxo> inputs = LegacyUtxoChecker.inputs(transaction, psbt, wallet, headersForm.getInputTransactions());
+        BooleanSupplier inputsCurrent = () -> headersForm.getPsbt() == psbt && headersForm.getSigningWallet() == wallet
+                && button.getScene() != null && button.getScene().getWindow().isShowing()
+                && inputs.equals(LegacyUtxoChecker.inputs(headersForm.getTransaction(), psbt, wallet, headersForm.getInputTransactions()));
+        return legacyReplayGuard.check(inputs, () -> inputsCurrent.getAsBoolean() && Arrays.equals(snapshot, headersForm.getTransaction().bitcoinSerialize()),
+                button, () -> approved.accept(inputsCurrent));
+    }
+
+    private void signSoftwareKeystores(BooleanSupplier isCurrent) {
         if(headersForm.getSigningWallet().getKeystores().stream().noneMatch(Keystore::hasPrivateKey)) {
             return;
         }
@@ -1264,7 +1288,7 @@ public class HeadersController extends TransactionFormController implements Init
                 decryptWalletService.setOnSucceeded(workerStateEvent -> {
                     EventManager.get().post(new StorageEvent(walletId, TimedEvent.Action.END, "Done"));
                     Wallet decryptedWallet = decryptWalletService.getValue();
-                    signUnencryptedKeystores(decryptedWallet);
+                    signUnencryptedKeystores(decryptedWallet, isCurrent);
                 });
                 decryptWalletService.setOnFailed(workerStateEvent -> {
                     EventManager.get().post(new StorageEvent(walletId, TimedEvent.Action.END, "Failed"));
@@ -1274,11 +1298,14 @@ public class HeadersController extends TransactionFormController implements Init
                 decryptWalletService.start();
             }
         } else {
-            signUnencryptedKeystores(copy);
+            signUnencryptedKeystores(copy, isCurrent);
         }
     }
 
-    private void signUnencryptedKeystores(Wallet unencryptedWallet) {
+    private void signUnencryptedKeystores(Wallet unencryptedWallet, BooleanSupplier isCurrent) {
+        if(!isCurrent.getAsBoolean()) {
+            return;
+        }
         try {
             Map<PSBTInput, WalletNode> signingNodes = unencryptedWallet.getSigningNodes(headersForm.getPsbt());
             List<SilentPayment> silentPayments = unencryptedWallet.computeSilentPaymentOutputs(headersForm.getPsbt(), signingNodes);
@@ -1298,8 +1325,8 @@ public class HeadersController extends TransactionFormController implements Init
         }
     }
 
-    private void signDeviceKeystores() {
-        if(headersForm.getPsbt().isSigned()) {
+    private void signDeviceKeystores(BooleanSupplier isCurrent) {
+        if(!isCurrent.getAsBoolean() || headersForm.getPsbt().isSigned()) {
             return;
         }
 
@@ -1397,6 +1424,10 @@ public class HeadersController extends TransactionFormController implements Init
     }
 
     public void broadcastTransaction(ActionEvent event) {
+        checkLegacyReplay(broadcastButton, isCurrent -> broadcastTransactionAfterReplayCheck(isCurrent));
+    }
+
+    private void broadcastTransactionAfterReplayCheck(BooleanSupplier isCurrent) {
         broadcastButton.setDisable(true);
         if(headersForm.getPsbt() != null) {
             if(!extractTransaction()) {
@@ -1426,6 +1457,10 @@ public class HeadersController extends TransactionFormController implements Init
             historyService.start();
         }
 
+        if(!isCurrent.getAsBoolean()) {
+            broadcastButton.setDisable(false);
+            return;
+        }
         ElectrumServer.BroadcastTransactionService broadcastTransactionService = new ElectrumServer.BroadcastTransactionService(headersForm.getTransaction(), fee.getValue());
         broadcastTransactionService.setOnSucceeded(workerStateEvent -> {
             AppServices.clearPayjoinURI(headersForm.getPsbt());

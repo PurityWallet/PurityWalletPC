@@ -11,3 +11,7 @@
 - [TASK-008: Automatic PR CI and current-revision acceptance](TASK-008.md)
 
 The released base task numbers 001–004 are retained; the mobile donation and integration records use 006–007 to avoid collisions.
+
+- [TASK-009: Legacy-chain UTXO and replay warnings](TASK-009.md)
+
+- [TASK-010: Set the release version to 1.0.0b3](TASK-010.md)

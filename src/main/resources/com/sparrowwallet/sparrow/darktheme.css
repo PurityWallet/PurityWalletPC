@@ -397,3 +397,11 @@ HorizontalHeaderColumn > TableColumnHeader.column-header.table-column{
 .root.chunk-addresses .tree-table-view .tree-table-row-cell:selected .address-chunk.alternate {
     -fx-fill: derive(-fx-selection-bar-text, -20%);
 }
+
+.legacy-shared {
+    -fx-text-fill: #ffae92;
+}
+
+.legacy-unknown {
+    -fx-text-fill: #f5c76b;
+}

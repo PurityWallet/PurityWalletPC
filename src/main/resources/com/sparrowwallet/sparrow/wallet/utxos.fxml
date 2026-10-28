@@ -68,6 +68,7 @@
                 </center>
                 <bottom>
                     <HBox>
+                        <Button fx:id="recheckLegacy" text="Recheck legacy chain" onAction="#checkLegacyUtxos" />
                         <Region HBox.hgrow="ALWAYS" />
                         <HBox styleClass="utxos-buttons-box" spacing="20" alignment="BOTTOM_RIGHT">
                             <Button fx:id="selectAll" text="Select All" onAction="#selectAll"/>

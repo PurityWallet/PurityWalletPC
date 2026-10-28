@@ -12,6 +12,9 @@ Native icon containers include scaled versions of the existing transparent mobil
 
 All project documentation is written in English.
 
-The application and Gradle archive version are `1.0.0b`. Native package metadata strips the beta suffix to use numeric version `1.0.0`.
+The application and Gradle archive version are `1.0.0b3`. Native package metadata strips the beta suffix to use numeric version `1.0.0`.
 
 PR CI uses separate Tests (Linux, with Xvfb for JavaFX) and Windows Installer workflows. Both run for PRs targeting master and pushes to master, with manual dispatch retained. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Test reports and installer checksums are uploaded as CI artifacts; no release is published.
+
+## Legacy-chain replay checks (REQ-011)
+Application-owned checks query transaction outputs and spent flags asynchronously through the configured HTTP proxy. Results are transient and keyed by exact outpoints, values and scripts. UTXOs expose per-row state; Send checks the inputs of the constructed transaction, and the signing/broadcast guard runs a fresh check. Unknown results never imply replay protection. Cancelled requests and stale transaction snapshots cannot authorize an action. No wallet serialization or dependency source changes are needed.

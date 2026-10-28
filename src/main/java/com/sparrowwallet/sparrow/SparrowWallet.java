@@ -23,7 +23,7 @@ public class SparrowWallet {
     public static final String APP_ID = "puritywallet";
     public static final String APP_NAME = "PurityWallet";
     public static final String STORAGE_NAME = APP_NAME;
-    public static final String APP_VERSION = "1.0.0b";
+    public static final String APP_VERSION = "1.0.0b3";
     public static final String APP_VERSION_SUFFIX = "";
     public static final String APP_HOME_PROPERTY = ApplicationDir.getHomeProperty(APP_NAME);
     public static final String NETWORK_ENV_PROPERTY = "PURITYWALLET_NETWORK";
