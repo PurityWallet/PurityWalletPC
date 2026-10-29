@@ -241,7 +241,7 @@ application {
                                  "--add-reads=org.flywaydb.core=java.desktop"]
 
     if(os.macOsX) {
-        applicationDefaultJvmArgs += ["-Dprism.lcdtext=false", "-Xdock:name=PurityWallet"]
+        applicationDefaultJvmArgs += ["-Dprism.lcdtext=false", "-Dprism.maxTextureSize=8192", "-Xdock:name=PurityWallet"]
     }
     if(headless) {
         applicationDefaultJvmArgs += ["-Dglass.platform=Headless"]
@@ -340,7 +340,7 @@ jlink {
             jvmArgs.addAll(["-Djavax.accessibility.assistive_technologies", "-Djavax.accessibility.screen_magnifier_present=false", '-Djava.library.path=$ROOTDIR\\runtime\\lib'])
         }
         if(os.macOsX) {
-            jvmArgs.addAll(["-Dprism.lcdtext=false", "--add-opens=javafx.graphics/com.sun.glass.ui.mac=com.sparrowwallet.merged.module"])
+            jvmArgs.addAll(["-Dprism.lcdtext=false", "-Dprism.maxTextureSize=8192", "--add-opens=javafx.graphics/com.sun.glass.ui.mac=com.sparrowwallet.merged.module"])
         }
         if(headless) {
             jvmArgs.addAll(["-Dglass.platform=Headless"])
