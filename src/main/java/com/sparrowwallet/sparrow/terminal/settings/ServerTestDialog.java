@@ -224,7 +224,7 @@ public class ServerTestDialog extends DialogWindow {
         } else if(exception instanceof ProxyServerException) {
             reason += ". Check if the proxy server is running.";
         } else if(reason != null && reason.contains("Check if Bitcoin Core is running")) {
-            reason += "\n\nSee https://bitcoininstitute.com/PurityWalletPC";
+            reason += "\n\nSee https://bitcoininstitute.com.au";
         }
 
         testStatus.setText("Failed");

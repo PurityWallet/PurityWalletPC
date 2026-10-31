@@ -163,3 +163,7 @@ The user requested the next application version `1.1.0b`. The application consta
 ## Release version 1.0.0b3 — 2026-10-28
 
 The latest user request supersedes the earlier local `1.1.0b` version. Application and archive versions are now `1.0.0b3`; native metadata uses `1.0.0`. The jpackage version conversion now strips numbered beta suffixes as well as a bare `b`, preventing `b3` from entering numeric installer fields. The existing download verifier already accepts numbered beta versions. Current requirements and documentation are synchronized; prior release evidence remains historical. All 13 Python packaging checks and the Java application version regression passed. A Gradle assertion verified the resolved native package version is `1.0.0`; `git diff --check` passed. Details are recorded in [TASK-010](tasks/TASK-010.md). No release installer was built or published.
+
+## Release version 1.1.0 and product website — 2026-10-31
+
+The latest request sets the release version to `1.1.0` and the product website to `https://bitcoininstitute.com.au`. Application, archive, jpackage and macOS bundle versions now agree; the README shows one version. The former beta release required a separate numeric native version, which is no longer needed. Current requirements and documentation are synchronized, and the GitHub repository About website was updated and verified. Earlier release and build records remain historical. Validation is recorded in [TASK-011](tasks/TASK-011.md); no release installer has been built or published for this change.

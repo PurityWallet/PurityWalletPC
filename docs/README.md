@@ -9,7 +9,7 @@
 - [Task index](tasks/README.md)
 - [Build instructions](reproducible.md)
 
-Website: https://bitcoininstitute.com/PurityWalletPC.
+Website: https://bitcoininstitute.com.au.
 
 All project documentation is maintained in English. Dependency documentation remains under its upstream ownership.
 

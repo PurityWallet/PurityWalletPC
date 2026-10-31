@@ -46,6 +46,6 @@ public class AboutController {
     }
 
     public void openWebsite(ActionEvent event) {
-        AppServices.get().getApplication().getHostServices().showDocument("https://bitcoininstitute.com/PurityWalletPC");
+        AppServices.get().getApplication().getHostServices().showDocument("https://bitcoininstitute.com.au");
     }
 }

@@ -717,7 +717,7 @@ public class ServerSettingsController extends SettingsDetailController {
         } else if(exception instanceof ProxyServerException) {
             reason += ". Check if the proxy server is running.";
         } else if(reason != null && (reason.contains("Check if Bitcoin Core is running") || reason.contains("Could not connect to Bitcoin Core RPC"))) {
-            reason += "\n\nSee https://bitcoininstitute.com/PurityWalletPC";
+            reason += "\n\nSee https://bitcoininstitute.com.au";
         } else if(reason != null && (reason.startsWith("Cannot connect to hidden service"))) {
             reason += " on the server. Check that the onion address and port are correct, and that both Tor and the Electrum server are running on the node. Usually SSL is not enabled, and the port is 50001.";
         } else if(reason != null && (reason.startsWith("Cannot find Bitcoin Core cookie file at"))) {

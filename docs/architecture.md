@@ -12,7 +12,7 @@ Native icon containers include scaled versions of the existing transparent mobil
 
 All project documentation is written in English.
 
-The application and Gradle archive version are `1.0.0b3`. Native package metadata strips the beta suffix to use numeric version `1.0.0`.
+The application, Gradle archives and native package metadata all use version `1.1.0`. jpackage uses the Gradle version directly; macOS bundle version fields use the same numeric value.
 
 PR CI uses separate Tests (Linux, with Xvfb for JavaFX) and Windows Installer workflows. Both run for PRs targeting master and pushes to master, with manual dispatch retained. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Test reports and installer checksums are uploaded as CI artifacts; no release is published.
 

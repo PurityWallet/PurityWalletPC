@@ -22,7 +22,7 @@
             <Label text="PurityWallet can operate in both an online and offline mode. In the online mode it connects to a Bitcoin Purity Core node or Electrum server to display transaction history. In the offline mode it is useful as a transaction editor and as an airgapped multisig coordinator." wrapText="true" />
             <Label text="While it's possible to connect to a public Electrum server, connecting PurityWallet to your Bitcoin Purity Core node ensures your privacy, while connecting PurityWallet to your private Electrum server ensures wallets load quicker, you have access to a full blockchain explorer, and your public keys are always encrypted on disk." wrapText="true" />
             <Label text="Based on Sparrow Wallet by Craig Raw and contributors. Apache License 2.0." wrapText="true" />
-            <HBox><Label text="PurityWallet website: "/><Hyperlink text="https://bitcoininstitute.com/PurityWalletPC" onAction="#openWebsite"/></HBox>
+            <HBox><Label text="PurityWallet website: "/><Hyperlink text="https://bitcoininstitute.com.au" onAction="#openWebsite"/></HBox>
             <HBox><Label text="If you find PurityWallet useful, consider donating: "/><Hyperlink text="Donate" onAction="#openDonate"/></HBox>
         </VBox>
         <HBox styleClass="button-area" alignment="BOTTOM_RIGHT" VBox.vgrow="SOMETIMES">

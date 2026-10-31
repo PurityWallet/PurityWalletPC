@@ -22,7 +22,7 @@ def headless = "true".equals(System.getProperty("java.awt.headless"))
 def skipInstallers = "true".equals(findProperty("skipInstallers"))
 
 group = 'com.sparrowwallet'
-version = '1.0.0b3'
+version = '1.1.0'
 
 repositories {
     mavenCentral()
@@ -301,8 +301,7 @@ jlink {
     jpackage {
         imageName = "puritywallet"
         installerName = "puritywallet"
-        // Native package metadata requires a numeric version; archives retain the beta suffix.
-        appVersion = version.toString().replaceFirst(/b[0-9]*$/, '')
+        appVersion = "${version}"
         skipInstaller = os.macOsX || skipInstallers
         imageOptions = ['--description', 'PurityWallet', '--vendor', 'PurityWallet contributors']
         installerOptions = ['--file-associations', 'src/main/deploy/psbt.properties', '--file-associations', 'src/main/deploy/txn.properties', '--file-associations', 'src/main/deploy/asc.properties', '--license-file', 'LICENSE']

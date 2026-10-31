@@ -7,7 +7,7 @@ License: ASL 2.0
 Vendor: Unknown
 
 %if "x" != "x"
-URL: https://bitcoininstitute.com/PurityWalletPC
+URL: https://bitcoininstitute.com.au
 %endif
 
 %if "x/opt" != "x"

@@ -3,8 +3,8 @@
 ## Identity and artwork
 
 Full and short name: **PurityWallet**. Command: `puritywallet`.
-Release version: **1.0.0b3**. Use **1.0.0** in native installer and bundle fields that require numeric versions.
-Website: https://bitcoininstitute.com/PurityWalletPC.
+Release version: **1.1.0**, shared by the application, archives, native installers and bundles.
+Website: https://bitcoininstitute.com.au.
 
 Retain internal Java package names and compatible third-party import identifiers.
 Use the existing blue-and-white PurityWallet logo from the local mobile project, scaled to the required sizes, for application icons, system tray icons, welcome and about screens, dialogs, notifications and PurityWallet wallet-model views.
@@ -33,7 +33,7 @@ Use multi-resolution PurityWallet icons in macOS ICNS, Windows ICO and Linux PNG
 
 All project documentation, including requirements, architecture, API contracts, migration reports and task records, is written in English.
 
-Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.0.0b3`; MSI product metadata uses numeric version `1.0.0`.
+Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.1.0`; MSI product metadata uses the same version `1.1.0`.
 
 # Product specification
 
