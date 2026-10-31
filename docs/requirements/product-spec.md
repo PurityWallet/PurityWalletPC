@@ -35,6 +35,12 @@ All project documentation, including requirements, architecture, API contracts, 
 
 Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.1.0`; MSI product metadata uses the same version `1.1.0`.
 
+macOS CI builds separate Apple Silicon (`arm64`) and Intel (`x64`) DMGs alongside Windows MSI validation on PRs targeting master, pushes to master and manual dispatch. Each DMG contains `puritywallet.app` and an Applications shortcut. Before uploading the DMG and SHA-256 as Actions artifacts, CI mounts the image and verifies the application's version, architecture, bundle identity and ad hoc signature. These builds do not require Apple credentials and are not notarized.
+
+Signing private keys, certificates containing private keys, passwords and notarization credentials must remain outside GitHub repository contents, Secrets, logs and artifacts. Official signing and notarization run locally. Both automatic and manually dispatched GitHub packaging workflows use credential-free ad hoc macOS signing only.
+
+Push the CI configuration to master to trigger installer generation. Official signing and notarization are deferred until the Apple Developer account's organization conversion is complete; keys and passwords remain on the local machine.
+
 # Product specification
 
 ## REQ-010: Automatic PR validation — adopted

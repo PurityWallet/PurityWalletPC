@@ -31,16 +31,18 @@ jobs:
         run: ./gradlew -v
       - name: Build with Gradle
         run: ./gradlew jpackage
-      - name: Codesign, package and notarize macOS distribution
+      - name: Package macOS DMG without Apple credentials
         if: ${{ runner.os == 'macOS' }}
-        uses: sparrowwallet/github-actions/codesign-macos@2cf7ea991d8c6fe7afe734898d0d0e748a3f3dac # v1
-        with:
-          app-name: puritywallet
-          certificate: ${{ secrets.MACOS_CERTIFICATE }}
-          certificate-password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          apple-id: ${{ secrets.MACOS_NOTARIZATION_APPLE_ID }}
-          team-id: ${{ secrets.MACOS_NOTARIZATION_TEAM_ID }}
-          notarization-password: ${{ secrets.MACOS_NOTARIZATION_PASSWORD }}
+        shell: bash
+        run: |
+          release_version=$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)
+          test -n "$release_version"
+          app=build/jpackage/puritywallet.app
+          codesign --force --deep --sign - "$app"
+          mkdir -p build/dmg-root
+          ditto "$app" build/dmg-root/puritywallet.app
+          ln -s /Applications build/dmg-root/Applications
+          hdiutil create -volname PurityWallet -srcfolder build/dmg-root -format UDZO "build/jpackage/puritywallet-${release_version}-macos-$(uname -m).dmg"
       - name: Package Windows zip distribution
         if: ${{ runner.os == 'Windows' }}
         run: ./gradlew packageZipDistribution

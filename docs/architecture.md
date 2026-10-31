@@ -16,5 +16,9 @@ The application, Gradle archives and native package metadata all use version `1.
 
 PR CI uses separate Tests (Linux, with Xvfb for JavaFX) and Windows Installer workflows. Both run for PRs targeting master and pushes to master, with manual dispatch retained. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Test reports and installer checksums are uploaded as CI artifacts; no release is published.
 
+The macOS DMG workflow runs on the same events, independently of Windows. A two-runner matrix builds native arm64 and x64 applications with the pinned JDK. Gradle produces the app image; `hdiutil` wraps an ad hoc signed copy and an Applications shortcut in a compressed DMG. Mounted-image checks precede artifact upload. This workflow uses no Apple signing credentials and performs no notarization or release publication.
+
+All GitHub packaging workflows, including the manual Package workflow, use credential-free ad hoc macOS signatures. Signing private keys, passwords and notarization credentials remain on the local signing machine and must not enter GitHub repositories, Secrets, logs or artifacts.
+
 ## Legacy-chain replay checks (REQ-011)
 Application-owned checks query transaction outputs and spent flags asynchronously through the configured HTTP proxy. Results are transient and keyed by exact outpoints, values and scripts. UTXOs expose per-row state; Send checks the inputs of the constructed transaction, and the signing/broadcast guard runs a fresh check. Unknown results never imply replay protection. Cancelled requests and stale transaction snapshots cannot authorize an action. No wallet serialization or dependency source changes are needed.

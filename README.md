@@ -32,6 +32,8 @@ On Windows use `puritywallet.bat`. Packaged executables are `puritywallet` / `pu
 
 Distributions are generated under `build/jpackage`. See [build documentation](docs/reproducible.md).
 
+CI builds Windows x64 MSI installers and macOS Apple Silicon / Intel DMGs for PRs targeting `master` and pushes to `master`; manual dispatch is also available. Download installers and SHA-256 files from each successful workflow run's **Artifacts** section in [GitHub Actions](https://github.com/PurityWallet/PurityWalletPC/actions). macOS CI apps use ad hoc signatures without Apple notarization.
+
 ## Bitcoin Purity
 
 - Public Electrum: `ssl://electrum.bitcoinpurity.org:50002`.

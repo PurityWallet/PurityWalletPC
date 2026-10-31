@@ -13,5 +13,9 @@ The application reports version `1.1.0`, including in its local Electrum adapter
 
 Automatic PR CI does not change runtime APIs, wallet formats or dependency revisions. Its GitHub token has contents:read permission only. Test reports and unsigned Windows installers with SHA-256 files are CI artifacts, not published releases. The live network checkpoint task remains a separate, explicitly invoked acceptance check.
 
+macOS CI adds separate `PurityWallet-<version>-macos-arm64` and `PurityWallet-<version>-macos-x64` artifacts, each containing a DMG and a SHA-256 file. The app is ad hoc signed without notarization. The workflow has contents:read permission and no Apple secrets; runtime interfaces remain unchanged.
+
+All GitHub packaging workflows must operate without signing private keys, certificates containing private keys, passwords or notarization credentials. Those credentials must not be stored in GitHub repositories or Secrets, printed in logs, or included in artifacts. Official signing and notarization are local operations.
+
 ## Legacy-chain checks (REQ-011)
 Mainnet uses read-only `GET https://mempool.space/api/tx/{txid}` and `/tx/{txid}/outspends`. The transaction must identify the requested txid; each checked vout must supply an integer value, hexadecimal scriptpubkey and boolean spent state. Only transaction HTTP 404 means absent; timeouts, other HTTP failures, missing metadata and malformed bodies mean unknown. Requests use the configured proxy, a 10-second request timeout, at most four concurrent transaction groups and no persistent response cache. Only txids are sent; no addresses, keys, PSBTs or signed transactions are submitted. Offline mode and regtest make no legacy requests. This service provides advisory replay information and does not replace Purity verification.

@@ -1,0 +1,100 @@
+name: macOS DMG
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-dmg-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  JDK_JAVAC_OPTIONS: '-Xlint:-module'
+
+jobs:
+  dmg:
+    name: DMG (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            mach_arch: arm64
+          - os: macos-15-intel
+            arch: x64
+            mach_arch: x86_64
+    env:
+      MACOS_ARCH: ${{ matrix.arch }}
+      MACH_ARCH: ${{ matrix.mach_arch }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up JDK 25.0.2
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        with:
+          distribution: temurin
+          java-version: '25.0.2'
+      - name: Check packaging and release metadata
+        run: |
+          release_version=$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)
+          test -n "$release_version"
+          echo "RELEASE_VERSION=$release_version" >> "$GITHUB_ENV"
+          python3 src/test/packaging_test.py
+      - name: Test and build macOS app
+        run: ./gradlew :test :jpackage --console=plain
+      - name: Create DMG and SHA-256
+        run: |
+          app=build/jpackage/puritywallet.app
+          codesign --force --deep --sign - "$app"
+          mkdir -p build/dmg-root build/macos-release
+          ditto "$app" build/dmg-root/puritywallet.app
+          ln -s /Applications build/dmg-root/Applications
+          dmg_name="puritywallet-${RELEASE_VERSION}-macos-${MACOS_ARCH}.dmg"
+          hdiutil create -volname PurityWallet -srcfolder build/dmg-root -format UDZO "build/macos-release/$dmg_name"
+          cd build/macos-release
+          shasum -a 256 "$dmg_name" > "$dmg_name.sha256"
+      - name: Mount DMG and verify the packaged app
+        run: |
+          dmg="build/macos-release/puritywallet-${RELEASE_VERSION}-macos-${MACOS_ARCH}.dmg"
+          hdiutil verify "$dmg"
+          mount_dir="$RUNNER_TEMP/puritywallet-dmg"
+          mkdir -p "$mount_dir"
+          hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount_dir"
+          trap 'hdiutil detach "$mount_dir"' EXIT
+          app="$mount_dir/puritywallet.app"
+          test "$(readlink "$mount_dir/Applications")" = /Applications
+          test "$(lipo -archs "$app/Contents/MacOS/puritywallet")" = "$MACH_ARCH"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$RELEASE_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" = "$RELEASE_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" = org.bitcoinpurity.puritywallet
+          codesign --verify --deep --strict "$app"
+          test "$("$app/Contents/MacOS/puritywallet" --version)" = "PurityWallet $RELEASE_VERSION"
+      - name: Upload DMG and SHA-256
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-${{ env.RELEASE_VERSION }}-macos-${{ matrix.arch }}
+          path: build/macos-release/*
+          if-no-files-found: error
+      - name: Upload macOS test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-macos-${{ matrix.arch }}-test-results
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: ignore

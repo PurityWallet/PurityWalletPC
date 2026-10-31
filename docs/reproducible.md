@@ -124,3 +124,13 @@ The Windows-only workflow is `.github/workflows/windows-package.yaml`. It runs o
 A push to `codex/puritywallet-windows-1.0.0b` starts this build; it can also be dispatched manually once the workflow is registered on the repository's default branch. Publishing the current local changes to GitHub requires user approval before any push. The workflow does not create a public release or merge changes.
 
 The first verified Windows build is [run 40490528703](https://github.com/PurityWallet/PurityWalletPC/actions/runs/40490528703), built from commit `e47afe4d7a8441fe3d0ce1300fdba736d1b746e7`. Its MSI passed installation and installed-version checks on the Windows runner. Artifact size and checksums are recorded in [TASK-004](tasks/TASK-004.md).
+
+## macOS CI DMGs
+
+The `macOS DMG` workflow (`.github/workflows/macos-package.yaml`) runs alongside Windows packaging for PRs targeting master, pushes to master and manual dispatch. Native `macos-15` and `macos-15-intel` runners build Apple Silicon and Intel packages, respectively, with Temurin 25.0.2. Gradle runs regression tests and produces `build/jpackage/puritywallet.app`; the workflow applies an ad hoc signature and creates a compressed DMG containing the app and an Applications shortcut.
+
+CI mounts each DMG read-only and checks the launcher architecture, bundle identifier, bundle versions, code signature and `--version` output before uploading. Download `PurityWallet-1.1.0-macos-arm64` or `PurityWallet-1.1.0-macos-x64` from the successful run's **Artifacts** section. Each artifact contains `puritywallet-1.1.0-macos-<arch>.dmg` and its `.sha256` file. Extract both into the same directory and run `shasum -a 256 -c puritywallet-1.1.0-macos-<arch>.dmg.sha256` to verify the checksum.
+
+These artifacts are ad hoc signed, without Developer ID signing or Apple notarization. Neither this workflow nor the manually dispatched `Package` workflow uses Apple signing credentials; both can create macOS DMGs without them. Official signing and notarization must run locally. Never upload signing private keys, certificates containing private keys, passwords or notarization credentials to GitHub repositories, Secrets, logs or artifacts. No GitHub Release is created by these workflows.
+
+Official signing and notarization are deferred until the Apple Developer account's organization conversion is complete. CI installer generation can proceed in the meantime.

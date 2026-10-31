@@ -167,3 +167,11 @@ The latest user request supersedes the earlier local `1.1.0b` version. Applicati
 ## Release version 1.1.0 and product website — 2026-10-31
 
 The latest request sets the release version to `1.1.0` and the product website to `https://bitcoininstitute.com.au`. Application, archive, jpackage and macOS bundle versions now agree; the README shows one version. The former beta release required a separate numeric native version, which is no longer needed. Current requirements and documentation are synchronized, and the GitHub repository About website was updated and verified. Earlier release and build records remain historical. Validation is recorded in [TASK-011](tasks/TASK-011.md); no release installer has been built or published for this change.
+
+## macOS DMG CI — 2026-10-31
+
+The requested CI extension adds a standalone macOS DMG workflow on the same PR, master-push and manual events as Windows validation. Native Apple Silicon and Intel runners execute tests, build the app, apply an ad hoc signature, create a compressed DMG and verify the mounted app before uploading versioned artifacts and checksums. Existing Gradle packaging and dependency sources are unchanged. Apple certificates, notarization and public release publication are outside this workflow. Validation and hosted-run limitations are recorded in [TASK-012](tasks/TASK-012.md).
+
+The user's credential boundary applies to every GitHub workflow: signing private keys, passwords and notarization credentials must not enter repository contents, Secrets, logs or artifacts. The older manual Package workflow's certificate-based signing action and Apple Secrets references were replaced with credential-free ad hoc DMG packaging. Official signing and notarization remain local.
+
+The user authorized committing and pushing this configuration so Windows and macOS installers are generated automatically. Formal signing and notarization are deferred until the Apple Developer account conversion to an organization is complete, with keys and passwords retained locally.

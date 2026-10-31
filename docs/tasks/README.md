@@ -17,3 +17,5 @@ The released base task numbers 001–004 are retained; the mobile donation and i
 - [TASK-010: Set the release version to 1.0.0b3](TASK-010.md)
 
 - [TASK-011: Unify release version 1.1.0 and correct the website](TASK-011.md)
+
+- [TASK-012: Build macOS DMGs in CI](TASK-012.md)
