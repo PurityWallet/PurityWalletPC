@@ -1,5 +1,21 @@
 # Migration report
 
+## Purity signet restart and defaults — 2026-11-02
+
+The restart menu offered signet even though startup explicitly exited for every network except mainnet and regtest. Startup and the menu now share the supported mainnet/signet/regtest list. Signet defaults to TLS Electrum on `electrum.bitcoinpurity.org:60002` and `https://mempool.bitcoinpurity.org/signet`; transaction links contain exactly one network path. Custom connections/explorer templates, disabled exploration and mainnet defaults are preserved.
+
+The live endpoint serves the Purity fork, not the unchanged Bitcoin signet difficulty profile. The application pins shared parent 327021 and activation 327022, authenticates the eleven-header MTP/ASERT seed by hash linkage and validates the forward chain with the signet PoW limit and exact ASERT. The activation/parent hashes were cross-checked against the deployed Electrum and explorer and the previously archived P2P boundary headers. The seed and 35-header fixture were fetched read-only from the requested TLS endpoint. Core's H-5 anchor, 600-second spacing, 86400-second half-life and activation-only harder-target rule were checked against the local Bitcoin Purity consensus sources. Signet headers use a separate `purity-signet-asert-v1` cache, public proof support remains mandatory when verification is enabled, and saved post-fork proofs are rechecked. Dependency source trees are unchanged.
+
+Validation:
+
+- Java 25 `:test :desktopTest :installDist` passed: **387 regression tests** and **7 desktop tests**, no failures or skips. The first sandboxed desktop attempt could not load/access the graphical runtime; the isolated desktop run outside the sandbox passed, using a temporary JavaFX cache.
+- `:verifyCheckpoint --tests '*PuritySignetSyncTest'` passed against `ssl://electrum.bitcoinpurity.org:60002` at 2026-11-02 12:25 Australia/Melbourne (01:25 UTC): **1,851 headers**, 327022–328872, ending at `000000112b8166e817375a95f822dbc8b02608918016c8e29a9cdaae1b5e81cd`, accumulated work `317615789764`. Cache replay matched; the activation transaction's Merkle proof was accepted, a wrong txid was rejected, shared historical checkpoint lookup passed, and verification remained mandatory.
+- All **13 Python packaging checks** and `git diff --check` passed. Every tracked file in both dependency directories was byte-compared with its pinned Git archive and matched.
+
+- `:jpackageImage` built the local macOS arm64 app; its launcher reports `PurityWallet 1.1.0`, and deep/strict ad hoc signature verification passed. Launched it with `--network SIGNET`, a new temporary home, offline mode and the global lock-file pointer disabled. It stayed running, completed desktop initialization in `signet/config`, and left the temporary mainnet configuration unchanged; only the exact test process was terminated. The initial smoke assertion expected console logging, but the packaged app does not emit that message there; the final smoke check used actual signet desktop settings and passed.
+
+The local app is `build/jpackage/puritywallet.app`. No commit, push, release publication, real transaction or native Windows/Linux execution was performed. See [TASK-013](tasks/TASK-013.md).
+
 ## Scope
 Mobile REQ-001/002/003 are adapted; REQ-004 is satisfied; REQ-005/007 are platform-specific and excluded; REQ-006 retains full desktop behavior; REQ-008 retains desktop notifications without mobile push.
 

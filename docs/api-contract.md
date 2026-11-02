@@ -2,7 +2,10 @@
 
 - Product website: https://bitcoininstitute.com.au.
 - Electrum JSON-RPC over TLS: `electrum.bitcoinpurity.org:50002`; client name `PurityWallet`.
+- Purity signet Electrum JSON-RPC over TLS: `electrum.bitcoinpurity.org:60002`; client name `PurityWallet`. No fallback to original Bitcoin signet peers.
+- Purity signet explorer: https://mempool.bitcoinpurity.org/signet; transaction links use `/signet/tx/{txid}` exactly once. Custom explorer templates and disabled exploration remain available.
 - Bitcoin Purity Core: compatible with Bitcoin Core RPC. The user selects the node; the pinned Purity activation block validates chain identity before wallet initialization.
+- Purity signet chain identity: activation height 327022, hash `00000004b42cf68f94be9dd89b65e44cae31eee382137221b83b5b261d3e3c20`; shared parent 327021, hash `00000013c351c0d13fc2c8b3547413b3ed30854a2434869c064a5076bab6aad6`. ASERT anchor 327017 uses bits `1d154f9b`, parent time 1792401042, spacing 600 seconds and half-life 86400 seconds. Wallet serialization and dependency revisions are unchanged.
 - Esplora REST: https://mempool.bitcoinpurity.org/api/ for block data and fallback transaction broadcasting; automatic fees use the connected node.
 - Preserve the protocol names for `bitcoin:` payment URIs, PSBT and compatible wallet import formats.
 - Do not use Sparrow's update-signing identity or Bitcoin market-price services as a source of Purity prices.

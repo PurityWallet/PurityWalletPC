@@ -11,7 +11,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public enum PublicElectrumServer {
-    PURITY("Purity Electrum", "ssl://electrum.bitcoinpurity.org:50002", Network.MAINNET);
+    PURITY("Purity Electrum", "ssl://electrum.bitcoinpurity.org:50002", Network.MAINNET),
+    PURITY_SIGNET("Purity Signet Electrum", "ssl://electrum.bitcoinpurity.org:60002", Network.SIGNET);
 
     PublicElectrumServer(String name, String url, Network network) {
         this(name, url, network, List.of(PolicyType.SINGLE_HD, PolicyType.MULTI_HD));
@@ -23,7 +24,7 @@ public enum PublicElectrumServer {
         this.supportedPolicyTypes = supportedPolicyTypes;
     }
 
-    public static final List<Network> SUPPORTED_NETWORKS = List.of(Network.MAINNET);
+    public static final List<Network> SUPPORTED_NETWORKS = List.of(Network.MAINNET, Network.SIGNET);
 
     private final Server server;
     private final Network network;

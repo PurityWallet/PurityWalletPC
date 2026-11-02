@@ -7,6 +7,12 @@ Purity checkpoints and ASERT header verification live in this project's `net` pa
 The locked drongo and lark revisions are used as dependencies without modifying their sources.
 Network presets use Bitcoin Purity services; application data and logs use independent `puritywallet` directories.
 
+## Purity signet (REQ-012)
+
+Startup and the restart menu share one supported-network list: mainnet, signet and development regtest. Existing per-network storage keeps signet configuration and wallets separate. The bundled signet peer uses TLS on port 60002; the explorer preset resolves to `/signet`, and transaction links avoid adding that path twice. Custom explorer templates and private connections remain supported.
+
+`ChainCheckpoints` pins the shared signet parent at 327021 and requires the Purity activation block at 327022. Historical headers link to the existing shared checkpoints or the pinned parent. `PurityHeaderState` authenticates eleven seed headers (327011–327021) by linkage to that parent; the seed includes ASERT anchor 327017 and its parent timestamp. Signet uses its own PoW limit with the existing exact integer ASERT calculation, full MTP/future-time/PoW checks, activation pin and cumulative work. `headers/purity-signet-asert-v1` isolates the cache from the original Bitcoin signet profile. Public-server proof support is mandatory while verification is enabled; stored post-fork proofs are rechecked. Electrum and Core connections check the signet activation hash. Dependency sources remain unchanged.
+
 Application and UI artwork comes from the local mobile PurityWallet project. JavaFX `ImageView` renders the canonical PNG in branded dialogs and wallet-model views; other wallet vendors retain their own SVG artwork.
 Native icon containers include scaled versions of the existing transparent mobile logo at platform-specific sizes. See [Brand assets](branding.md) for provenance.
 

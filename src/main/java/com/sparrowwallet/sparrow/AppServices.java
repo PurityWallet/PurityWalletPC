@@ -1021,16 +1021,7 @@ public class AppServices {
             return;
         }
 
-        Server blockExplorer = Config.get().getBlockExplorer();
-        String url = blockExplorer.getUrl();
-        if(url.contains("{0}")) {
-            url = url.replace("{0}", txid);
-        } else {
-            if(Network.get() != Network.MAINNET) {
-                url += "/" + Network.get().getName();
-            }
-            url += "/tx/" + txid;
-        }
+        String url = BlockExplorer.getTransactionUrl(Config.get().getBlockExplorer(), txid);
         AppServices.get().getApplication().getHostServices().showDocument(url);
     }
 

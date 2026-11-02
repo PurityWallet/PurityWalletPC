@@ -60,8 +60,29 @@ class PurityConfigTest {
     }
 
     @Test
+    void signetDefaultsUsePurityTlsAndExplorer() {
+        Network.set(Network.SIGNET);
+        Config config = new Config();
+        assertEquals(ServerType.PUBLIC_ELECTRUM_SERVER, config.getServerType());
+        assertEquals("ssl://electrum.bitcoinpurity.org:60002", config.getServer().getUrl());
+        assertEquals("https://mempool.bitcoinpurity.org/signet", config.getBlockExplorer().getUrl());
+        assertTrue(PublicElectrumServer.supportedNetwork());
+        assertEquals(1, PublicElectrumServer.getServers().size());
+        Config saved = Config.getGson().fromJson("""
+                {"serverType":"ELECTRUM_SERVER","electrumServer":"ssl://my.signet.node:60002",
+                 "publicElectrumServer":"ssl://electrum.blockstream.info:60602",
+                 "blockExplorer":"https://my.explorer/tx/{0}"}
+                """, Config.class);
+        assertEquals("ssl://electrum.bitcoinpurity.org:60002", saved.getPublicElectrumServer().getUrl());
+        assertEquals("ssl://my.signet.node:60002", saved.getServer().getUrl());
+        assertEquals("https://my.explorer/tx/{0}", saved.getBlockExplorer().getUrl());
+        Config disabled = Config.getGson().fromJson("{\"blockExplorer\":\"http://none\"}", Config.class);
+        assertTrue(disabled.isBlockExplorerDisabled());
+    }
+
+    @Test
     void nonMainnetDoesNotOfferBitcoinPublicPeers() {
-        for(Network network : new Network[]{Network.TESTNET, Network.TESTNET4, Network.SIGNET, Network.REGTEST}) {
+        for(Network network : new Network[]{Network.TESTNET, Network.TESTNET4, Network.REGTEST}) {
             Network.set(network);
             assertTrue(PublicElectrumServer.getServers().isEmpty());
             assertNull(new Config().getPublicElectrumServer());

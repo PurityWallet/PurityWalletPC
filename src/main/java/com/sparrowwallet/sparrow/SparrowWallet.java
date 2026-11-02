@@ -20,6 +20,7 @@ import java.io.File;
 import java.util.*;
 
 public class SparrowWallet {
+    public static final List<Network> SUPPORTED_NETWORKS = List.of(Network.MAINNET, Network.SIGNET, Network.REGTEST);
     public static final String APP_ID = "puritywallet";
     public static final String APP_NAME = "PurityWallet";
     public static final String STORAGE_NAME = APP_NAME;
@@ -114,8 +115,8 @@ public class SparrowWallet {
             Network.set(Network.SIGNET);
         }
 
-        if(Network.get() != Network.MAINNET && Network.get() != Network.REGTEST) {
-            System.err.println("PurityWallet supports Bitcoin Purity mainnet and development regtest only.");
+        if(!SUPPORTED_NETWORKS.contains(Network.get())) {
+            System.err.println("PurityWallet supports Bitcoin Purity mainnet, signet and development regtest only.");
             System.exit(1);
         }
 
