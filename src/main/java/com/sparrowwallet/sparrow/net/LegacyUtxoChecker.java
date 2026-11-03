@@ -17,6 +17,18 @@ import java.util.concurrent.*;
 public class LegacyUtxoChecker {
     public static final String API = "https://mempool.space/api";
 
+    public static String getApi(Network network) {
+        return switch(network) {
+            case MAINNET -> API;
+            case SIGNET -> "https://mempool.space/signet/api";
+            default -> null;
+        };
+    }
+
+    public static boolean isSupported(Network network) {
+        return getApi(network) != null;
+    }
+
     public enum Status { CHECKING, SHARED, ABSENT, UNKNOWN }
 
     public record Utxo(String txid, long index, long value, String script) {
@@ -129,12 +141,13 @@ public class LegacyUtxoChecker {
 
         @Override
         protected Task<Map<Utxo, Status>> createTask() {
+            String api = getApi(Network.get());
             boolean online = AppServices.onlineProperty().get();
             var proxy = AppServices.getTorProxy();
             return new Task<>() {
                 @Override
                 protected Map<Utxo, Status> call() throws Exception {
-                    if(Network.get() != Network.MAINNET || !online) {
+                    if(api == null || !online) {
                         Map<Utxo, Status> results = new HashMap<>();
                         inputs.forEach(input -> results.put(input, Status.UNKNOWN));
                         return results;
@@ -143,7 +156,7 @@ public class LegacyUtxoChecker {
                     try {
                         var http = client.getHttpClient(com.sparrowwallet.tern.http.client.HttpUsage.DEFAULT);
                         http.connect();
-                        return new LegacyUtxoChecker(path -> http.getJson(API + path, JsonNode.class, Map.of("Cache-Control", "no-cache"))).check(inputs);
+                        return new LegacyUtxoChecker(path -> http.getJson(api + path, JsonNode.class, Map.of("Cache-Control", "no-cache"))).check(inputs);
                     } finally {
                         client.stop();
                     }

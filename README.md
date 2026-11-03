@@ -1,7 +1,7 @@
 <!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 # PurityWallet
 
-Current release version: **1.1.0**.
+Current release version: **1.1.1**.
 
 PurityWallet is a desktop wallet for the **Bitcoin Purity** blockchain, derived from Sparrow Wallet. Its full and short product names are both **PurityWallet**.
 

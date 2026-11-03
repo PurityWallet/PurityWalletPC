@@ -912,7 +912,7 @@ public class SendController extends WalletFormController implements Initializabl
         if(legacyCheck != null) {
             legacyCheck.cancel();
         }
-        if(transaction == null || Network.get() != Network.MAINNET) {
+        if(transaction == null || !LegacyUtxoChecker.isSupported(Network.get())) {
             legacyReplayWarning.setStatus(LegacyUtxoChecker.Status.ABSENT);
             return;
         }

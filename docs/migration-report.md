@@ -191,3 +191,17 @@ The requested CI extension adds a standalone macOS DMG workflow on the same PR, 
 The user's credential boundary applies to every GitHub workflow: signing private keys, passwords and notarization credentials must not enter repository contents, Secrets, logs or artifacts. The older manual Package workflow's certificate-based signing action and Apple Secrets references were replaced with credential-free ad hoc DMG packaging. Official signing and notarization remain local.
 
 The user authorized committing and pushing this configuration so Windows and macOS installers are generated automatically. Formal signing and notarization are deferred until the Apple Developer account conversion to an organization is complete, with keys and passwords retained locally.
+
+## Versioned signet comparison build — 2026-11-03
+
+REQ-013 identifies the next signet comparison build as 1.1.1 through application, Gradle and macOS version metadata only. Existing version expectations were updated first; the packaging regression failed against 1.1.0 before implementation. Behavior, dependency sources and signing policy are unchanged. Validation and DMG checksums are recorded in [TASK-014](tasks/TASK-014.md). Google review submissions for the original 1.1.0 artifacts remain separate.
+
+Local comparison acceptance passed 13 packaging checks, the Java application version regression, `:jpackageImage`, DMG checksum validation and read-only mounted architecture/version/signature checks. The arm64 DMG SHA-256 is `84b6c2b8771217e99deb18bc2269355bed784792f6069f8495887d22f414065a`. The image was detached. No Chrome verdict, Intel build, commit, push, CI run or release publication is claimed.
+
+## Signet legacy-chain checks — 2026-11-03
+
+The latest REQ-011 extends the mainnet replay checks to Purity signet. Two desktop regressions first reproduced the signet guard bypass and hidden warning. A shared endpoint selector now enables the UTXO column/recheck action, Send preview and signing/broadcast guard for both networks. Mainnet retains `https://mempool.space/api`; signet uses `https://mempool.space/signet/api`, captured before background execution, without mainnet fallback. The existing exact-output and unknown/cancel/stale-result rules remain intact. This behavior change follows the earlier version-only 1.1.1 comparison build; the earlier DMG in TASK-014 does not contain this change. See [TASK-015](tasks/TASK-015.md) for current acceptance.
+
+Signet legacy acceptance passed 388 Java regressions, 7 desktop tests (with replay scenarios exercised on both networks), 13 packaging checks and the tagged live missing-transaction test against both corresponding Bitcoin APIs. Rendered signet UTXO and Send warnings were inspected. Only synthetic/public test data was queried; no transaction was signed or broadcast.
+
+The updated local arm64 package is `build/macos-release/puritywallet-1.1.1-signet-legacy-macos-arm64.dmg`, SHA-256 `35317568df8093da2b2ba2a8dc5d4f9be03f147838e8cd49481d25efa06bc93d`. Embedded legacy-checker bytecode matches the tested class. The DMG passed checksum, mounted version/architecture/shortcut and deep/strict ad hoc signature checks, then was detached. This is local acceptance only; no commit, push, hosted CI, Intel build or Chrome verdict is claimed.

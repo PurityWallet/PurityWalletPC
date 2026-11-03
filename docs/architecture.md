@@ -18,7 +18,7 @@ Native icon containers include scaled versions of the existing transparent mobil
 
 All project documentation is written in English.
 
-The application, Gradle archives and native package metadata all use version `1.1.0`. jpackage uses the Gradle version directly; macOS bundle version fields use the same numeric value.
+The application, Gradle archives and native package metadata all use version `1.1.1`. jpackage uses the Gradle version directly; macOS bundle version fields use the same numeric value.
 
 PR CI uses separate Tests (Linux, with Xvfb for JavaFX) and Windows Installer workflows. Both run for PRs targeting master and pushes to master, with manual dispatch retained. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Test reports and installer checksums are uploaded as CI artifacts; no release is published.
 
@@ -27,4 +27,4 @@ The macOS DMG workflow runs on the same events, independently of Windows. A two-
 All GitHub packaging workflows, including the manual Package workflow, use credential-free ad hoc macOS signatures. Signing private keys, passwords and notarization credentials remain on the local signing machine and must not enter GitHub repositories, Secrets, logs or artifacts.
 
 ## Legacy-chain replay checks (REQ-011)
-Application-owned checks query transaction outputs and spent flags asynchronously through the configured HTTP proxy. Results are transient and keyed by exact outpoints, values and scripts. UTXOs expose per-row state; Send checks the inputs of the constructed transaction, and the signing/broadcast guard runs a fresh check. Unknown results never imply replay protection. Cancelled requests and stale transaction snapshots cannot authorize an action. No wallet serialization or dependency source changes are needed.
+Mainnet and Purity signet share the application-owned legacy checks, UTXO status column/recheck button, Send input preview and signing/broadcast guard. Checks query transaction outputs and spent flags asynchronously through the configured HTTP proxy: mainnet uses `https://mempool.space/api`, while signet uses `https://mempool.space/signet/api`. A shared endpoint selector controls network eligibility, and each task captures its endpoint before background execution. Regtest and unsupported testnets make no requests. Results are transient and keyed by exact outpoints, values and scripts. UTXOs expose per-row state; Send checks the inputs of the constructed transaction, and the signing/broadcast guard runs a fresh check. Unknown results never imply replay protection. Cancelled requests and stale transaction snapshots cannot authorize an action. No wallet serialization or dependency source changes are needed.
