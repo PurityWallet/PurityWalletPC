@@ -23,7 +23,7 @@ public class LegacyReplayGuard {
         if(checking || !isCurrent.getAsBoolean()) {
             return CompletableFuture.completedFuture(false);
         }
-        if(Network.get() != Network.MAINNET || inputs.isEmpty()) {
+        if(!LegacyUtxoChecker.isSupported(Network.get()) || inputs.isEmpty()) {
             approved.run();
             return CompletableFuture.completedFuture(true);
         }

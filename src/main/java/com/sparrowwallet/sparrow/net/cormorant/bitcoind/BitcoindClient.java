@@ -8,6 +8,7 @@ import com.google.common.collect.Sets;
 import com.sparrowwallet.drongo.KeyPurpose;
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.sparrow.net.HeaderCheckpoints;
+import com.sparrowwallet.sparrow.net.PurityHeaderState;
 import com.sparrowwallet.drongo.OutputDescriptor;
 import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.wallet.BlockTransactionHash;
@@ -129,6 +130,10 @@ public class BitcoindClient {
         if(Network.get() == Network.MAINNET && !HeaderCheckpoints.PURITY_ACTIVATION_HASH.toString().equals(
                 getBitcoindService().getBlockHash(HeaderCheckpoints.PURITY_ACTIVATION_HEIGHT))) {
             throw new CormorantBitcoindException("Node is not on the Bitcoin Purity chain: activation block mismatch");
+        }
+        if(Network.get() == Network.SIGNET && !PurityHeaderState.SIGNET_ACTIVATION_HASH.toString().equals(
+                getBitcoindService().getBlockHash(PurityHeaderState.SIGNET_ACTIVATION_HEIGHT))) {
+            throw new CormorantBitcoindException("Node is not on the Bitcoin Purity signet chain: activation block mismatch");
         }
 
         BlockchainInfo blockchainInfo = getBitcoindService().getBlockchainInfo();

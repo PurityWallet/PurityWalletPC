@@ -3,7 +3,7 @@
 ## Identity and artwork
 
 Full and short name: **PurityWallet**. Command: `puritywallet`.
-Release version: **1.1.0**, shared by the application, archives, native installers and bundles.
+Release version: **1.1.1**, shared by the application, archives, native installers and bundles.
 Website: https://bitcoininstitute.com.au.
 
 Retain internal Java package names and compatible third-party import identifiers.
@@ -21,7 +21,7 @@ Pinned activation hash: `0000000000000000003ea74f4dafdda7ed4e02c4c1ccb9768e0ca4f
 ASERT anchor height: **961632**; target block spacing: **600 seconds**; half-life: **86400 seconds**.
 
 Keep Bitcoin-only checkpoints and services out of the Purity mainnet path, and do not display BTC market prices as Purity prices.
-Bitcoin test networks without Purity parameters cannot start as Purity networks. Keep regtest for development.
+Purity signet is supported with its own fork profile and services. Bitcoin testnet3/testnet4 cannot start as Purity networks. Keep regtest for development.
 
 ## Distribution and licensing
 
@@ -33,7 +33,7 @@ Use multi-resolution PurityWallet icons in macOS ICNS, Windows ICO and Linux PNG
 
 All project documentation, including requirements, architecture, API contracts, migration reports and task records, is written in English.
 
-Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.1.0`; MSI product metadata uses the same version `1.1.0`.
+Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.1.1`; MSI product metadata uses the same version `1.1.1`.
 
 macOS CI builds separate Apple Silicon (`arm64`) and Intel (`x64`) DMGs alongside Windows MSI validation on PRs targeting master, pushes to master and manual dispatch. Each DMG contains `puritywallet.app` and an Applications shortcut. Before uploading the DMG and SHA-256 as Actions artifacts, CI mounts the image and verifies the application's version, architecture, bundle identity and ad hoc signature. These builds do not require Apple credentials and are not notarized.
 
@@ -50,7 +50,7 @@ GitHub Actions validates opened, reopened and updated PRs targeting master and p
 Use PurityWallet for visible application, CLI and package names. Derive desktop icons from the mobile blue master. Preserve Java packages, dependency coordinates, application identities, storage paths, wallet formats, upstream attribution and licenses. Help, issues and releases use https://github.com/PurityWallet/PurityWalletPC. Disable upstream automatic version checks and hide their switch; offer manual releases access.
 
 ## REQ-002: Purity defaults — adopted
-The only bundled public Electrum endpoint is ssl://electrum.bitcoinpurity.org:50002 (mainnet). The only predefined explorer is https://mempool.bitcoinpurity.org; custom explorers and disabling exploration remain available. Preserve explicit custom Electrum/Core connections. Never retry legacy bundled public peers. Use connected-node fee estimates and retain manual fees; do not fetch Bitcoin third-party fees. Hide fiat settings and valuations and stop exchange requests even with saved configurations. No Purity Signet support is added; startup remains limited to mainnet and development regtest.
+Bundle only Purity public Electrum endpoints: ssl://electrum.bitcoinpurity.org:50002 (mainnet) and ssl://electrum.bitcoinpurity.org:60002 (signet). The predefined explorer is https://mempool.bitcoinpurity.org on mainnet and https://mempool.bitcoinpurity.org/signet on signet; custom explorers and disabling exploration remain available. Preserve explicit custom Electrum/Core connections. Never retry legacy bundled public peers. Use connected-node fee estimates and retain manual fees; do not fetch Bitcoin third-party fees. Hide fiat settings and valuations and stop exchange requests even with saved configurations. Support mainnet, Purity signet and development regtest; unsupported Bitcoin testnets must not appear in the restart menu.
 
 ## REQ-003: In-wallet donations — adopted
 Donate in About selects an eligible open wallet, including hardware, multisig and watch-only/PSBT workflows. Always ask, even with one wallet. One replaceable recipient constant initially contains an invalid placeholder; display an unavailable message until valid. A configured recipient opens the normal Send view with no amount. Cancellation or no eligible wallet makes no payment. Never automatically construct, sign or broadcast a transaction.
@@ -74,7 +74,15 @@ Keep existing desktop transaction notifications and their switch, updating visib
 Fresh and reset defaults offer only Purity services. Explicit custom connections survive configuration reload. Saved external fee, exchange and update preferences cannot activate their services. Manual fees and desktop notification preferences remain available. Rebranding must leave default/XDG/custom storage locations and serialized wallet formats unchanged. Icons and names cover Windows, macOS and Linux. Donation always requires selection and the existing payment review/signing workflow; the shipped placeholder cannot enter payment creation.
 
 ## REQ-009: Purity mainnet header verification — adopted
-Adapt mainnet validation in this application without changing dependency sources or disabling verification. Use the common checkpoint at 961631 and the consensus-pinned Purity activation block at 961637. Validate the pre-activation headers against the shared target and subsequent headers against Purity Core ASERT (anchor 961632, anchor-parent time at 961631, spacing 600 seconds, half-life 86400 seconds). Preserve Core's activation-only harder-target allowance alongside the exact activation hash. Enforce linkage, claimed PoW/powLimit, seeded eleven-header MTP, future-time bound, Merkle inclusion and cumulative-work reorg checks. Historical proof anchors must come from the same application profile. On first wallet fetch, recheck every stored proof above 961631, including records older than the recent reorg window. Isolate only the mainnet header cache by chain/version; preserve wallet paths and identities. Non-mainnet validation delegates to the unchanged dependency. Complete offline regression, full live header synchronization/replay and transaction-proof acceptance before removing the recorded blocker.
+Adapt mainnet validation in this application without changing dependency sources or disabling verification. Use the common checkpoint at 961631 and the consensus-pinned Purity activation block at 961637. Validate the pre-activation headers against the shared target and subsequent headers against Purity Core ASERT (anchor 961632, anchor-parent time at 961631, spacing 600 seconds, half-life 86400 seconds). Preserve Core's activation-only harder-target allowance alongside the exact activation hash. Enforce linkage, claimed PoW/powLimit, seeded eleven-header MTP, future-time bound, Merkle inclusion and cumulative-work reorg checks. Historical proof anchors must come from the same application profile. On first wallet fetch, recheck every stored proof above 961631, including records older than the recent reorg window. Isolate only the mainnet header cache by chain/version; preserve wallet paths and identities. Regtest and unsupported Bitcoin testnet validation delegate to the unchanged dependency; Purity signet uses the application-owned profile in REQ-012. Complete offline regression, full live header synchronization/replay and transaction-proof acceptance before removing the recorded blocker.
 
 ## REQ-011: Legacy-chain UTXO and replay warnings
-On mainnet, check every UTXO against the Bitcoin legacy chain. Mark an output as shared only when txid, output index, amount and script match an unspent legacy output. Show a prominent warning for each shared output and distinguish checking and unavailable results. On Send, check the actual transaction inputs after coin selection (including automatic selection). Warn clearly when all inputs are shared. Require explicit acknowledgement of replay risk before signing or broadcasting; cancellation must stop the action. An unavailable or malformed check must remain unknown and require an explicit risk acknowledgement to continue. Recheck before protected actions, discard stale results after input/transaction changes, respect offline mode and the configured proxy, and keep regtest free of legacy-mainnet requests. Use the mobile wallet's read-only mempool.space API approach without changing dependency sources or wallet formats.
+On mainnet and Purity signet, check every UTXO against the corresponding legacy Bitcoin network: mainnet uses https://mempool.space/api and signet uses https://mempool.space/signet/api. Never send signet checks to the mainnet API. Mark an output as shared only when txid, output index, amount and script match an unspent legacy output. Show a prominent warning for each shared output and distinguish checking and unavailable results. On Send, check the actual transaction inputs after coin selection (including automatic selection). Warn clearly when all inputs are shared. Require explicit acknowledgement of replay risk before signing or broadcasting; cancellation must stop the action. An unavailable or malformed check must remain unknown and require an explicit risk acknowledgement to continue. Recheck before protected actions, discard stale results after input/transaction changes, respect offline mode and the configured proxy, and keep regtest and unsupported testnets free of legacy requests. Use the mobile wallet's read-only mempool.space API approach without changing dependency sources or wallet formats.
+
+## REQ-012: Purity signet switching and defaults
+
+Switching to signet must restart successfully rather than exit at the network restriction. Use the signet TLS Electrum and explorer defaults from REQ-002, with exactly one /signet segment in transaction links. Keep network-specific configuration and wallets separate, preserve custom connections/explorers and disabled exploration, and retain mainnet defaults. Authenticate Purity signet's activation block at 327022, validate subsequent headers using its ASERT parameters (anchor 327017, spacing 600 seconds, half-life 86400 seconds), and isolate its header cache from the original Bitcoin signet profile. Do not modify dependency sources or disable transaction verification.
+
+## REQ-013: Versioned signet comparison build
+
+Use 1.1.1 consistently in application, archives and native bundle/installer metadata to distinguish the signet comparison build. Preserve behavior, dependencies and signing policy. Compare normal Chrome download behavior using the recorded DMG checksum. A changed hash does not establish Google review approval or a cleared verdict.

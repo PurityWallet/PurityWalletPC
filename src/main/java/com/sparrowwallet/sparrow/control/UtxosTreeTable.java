@@ -88,7 +88,7 @@ public class UtxosTreeTable extends CoinTreeTable {
         getColumns().add(amountCol);
         setTreeColumn(amountCol);
 
-        if(Network.get() == Network.MAINNET) {
+        if(LegacyUtxoChecker.isSupported(Network.get())) {
             TreeTableColumn<Entry, LegacyUtxoChecker.Status> legacyCol = new TreeTableColumn<>("Legacy chain");
             legacyCol.setCellValueFactory(param -> ((UtxoEntry)param.getValue().getValue()).legacyStatusProperty());
             legacyCol.setCellFactory(column -> new TreeTableCell<>() {

@@ -64,7 +64,7 @@ class PurityMainnetSyncTest {
             AppServices.setAnnouncedTip(tip);
             ElectrumServer.headerStore = null;
             ElectrumServer server = new ElectrumServer();
-            server.verifyMainnetChain(tip);
+            server.verifyPurityChain(tip);
             server.syncHeaders(tip);
             HeaderStore store = ElectrumServer.getHeaderStore();
             assertEquals(961632, store.getStartHeight());

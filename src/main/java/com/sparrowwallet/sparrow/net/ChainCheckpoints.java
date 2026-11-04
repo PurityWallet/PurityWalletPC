@@ -24,10 +24,12 @@ public final class ChainCheckpoints {
     }
 
     public int getMaxHeight() {
+        if(network == Network.SIGNET) return PurityHeaderState.SIGNET_ACTIVATION_HEIGHT - 1;
         return network == Network.MAINNET ? PurityHeaderState.COMMON_ANCHOR_HEIGHT : upstream.getMaxHeight();
     }
 
     public int getMinimumTipHeight() {
+        if(network == Network.SIGNET) return PurityHeaderState.SIGNET_ACTIVATION_HEIGHT;
         return network == Network.MAINNET ? PurityHeaderState.ACTIVATION_HEIGHT : getMaxHeight();
     }
 
@@ -35,28 +37,30 @@ public final class ChainCheckpoints {
         if(height > getMaxHeight()) {
             throw new IllegalArgumentException("Height " + height + " is above the chain's last historical checkpoint");
         }
-        return upstream.getHash(height);
+        return network == Network.SIGNET && height == getMaxHeight() ? PurityHeaderState.SIGNET_PARENT_HASH : upstream.getHash(height);
     }
 
     public long getBitsAfter(int height) {
         if(height > getMaxHeight()) {
             throw new IllegalArgumentException("Height " + height + " is above the chain's last historical checkpoint");
         }
-        return upstream.getBitsAfter(height);
+        return network == Network.SIGNET && height == getMaxHeight() ? 0x1d153796L : upstream.getBitsAfter(height);
     }
 
     public int getPinnedHeightAtOrAbove(int height) {
         if(height > getMaxHeight()) {
             throw new IllegalArgumentException("Height " + height + " must be verified by forward synchronization");
         }
-        return upstream.getPinnedHeightAtOrAbove(height);
+        return network == Network.SIGNET && height > upstream.getMaxHeight() ? getMaxHeight() : upstream.getPinnedHeightAtOrAbove(height);
     }
 
     public String getCacheNamespace() {
+        if(network == Network.SIGNET) return "purity-signet-asert-v1";
         return network == Network.MAINNET ? "purity-mainnet-asert-v1" : null;
     }
 
     public HeaderState newChainState() {
+        if(network == Network.SIGNET) return new PurityHeaderState(Network.SIGNET);
         return network == Network.MAINNET ? new PurityHeaderState() : new UpstreamState(upstream.newChainState());
     }
 

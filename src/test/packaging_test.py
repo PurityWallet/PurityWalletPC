@@ -9,12 +9,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 class PackagingTest(unittest.TestCase):
     def test_release_version(self):
         build = (ROOT / "build.gradle").read_text()
-        self.assertIn("version = '1.1.0'", build)
+        self.assertIn("version = '1.1.1'", build)
         self.assertIn('appVersion = "${version}"', build)
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as stream:
             info = plistlib.load(stream)
-        self.assertEqual("1.1.0", info["CFBundleShortVersionString"])
-        self.assertEqual("1.1.0", info["CFBundleVersion"])
+        self.assertEqual("1.1.1", info["CFBundleShortVersionString"])
+        self.assertEqual("1.1.1", info["CFBundleVersion"])
 
     def test_launchers(self):
         self.assertTrue((ROOT / "puritywallet").is_file())

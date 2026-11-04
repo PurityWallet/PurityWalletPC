@@ -1,6 +1,7 @@
 package com.sparrowwallet.sparrow.control;
 
 import com.sparrowwallet.drongo.Network;
+import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
 import com.sparrowwallet.sparrow.net.LegacyUtxoChecker.Status;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
@@ -26,6 +27,6 @@ public class LegacyReplayWarning extends Label {
             case ABSENT -> "";
         });
         setTooltip(getText().isEmpty() ? null : new Tooltip(getText()));
-        setVisible(Network.get() == Network.MAINNET && status != Status.ABSENT);
+        setVisible(LegacyUtxoChecker.isSupported(Network.get()) && status != Status.ABSENT);
     }
 }

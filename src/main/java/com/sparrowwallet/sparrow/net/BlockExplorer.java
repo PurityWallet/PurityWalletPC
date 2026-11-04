@@ -1,6 +1,7 @@
 // Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 package com.sparrowwallet.sparrow.net;
 
+import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.sparrow.AppServices;
 import com.sparrowwallet.sparrow.io.Server;
 import org.girod.javafx.svgimage.SVGImage;
@@ -24,7 +25,21 @@ public enum BlockExplorer {
     }
 
     public Server getServer() {
-        return server;
+        return this == MEMPOOL_SPACE && Network.get() == Network.SIGNET ? new Server(server.getUrl() + "/signet") : server;
+    }
+
+    public static String getTransactionUrl(Server server, String txid) {
+        String url = server.getUrl();
+        if(url.contains("{0}")) {
+            return url.replace("{0}", txid);
+        }
+        if(url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        if(Network.get() != Network.MAINNET && !url.endsWith("/" + Network.get().getName())) {
+            url += "/" + Network.get().getName();
+        }
+        return url + "/tx/" + txid;
     }
 
     public static SVGImage getSVGImage(Server server) {

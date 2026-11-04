@@ -599,7 +599,7 @@ public class ElectrumServer {
      * session or in one before it - still holds what the replaced block proved, at heights the server may well report unchanged. Where one is found,
      * the wallet is treated as a reorg at that height would have treated it: its nodes above are fetched again and the stored block hashes compared.
      * <p>
-     * On Purity mainnet every stored proof above the common anchor is compared: the unchanged wallet format can contain Bitcoin proofs older than
+     * On Purity mainnet and signet every stored proof above the common anchor is compared: the unchanged wallet format can contain Bitcoin proofs older than
      * the recent reorg window. Other networks retain that window, covering the deepest reorg the store accepts from the wallet's stored height.
      * <p>
      * Returns whether every one of them could be compared, which is false while the store has yet to reach one. The comparison is then made again on
@@ -609,7 +609,7 @@ public class ElectrumServer {
         if(walletSyncLock.storedProofsFromHeight == null) {
             int startHeight = ChainCheckpoints.get(Network.get()).getMaxHeight() + 1;
             Integer storedHeight = wallet.getStoredBlockHeight();
-            walletSyncLock.storedProofsFromHeight = Network.get() == Network.MAINNET || storedHeight == null
+            walletSyncLock.storedProofsFromHeight = Network.get() == Network.MAINNET || Network.get() == Network.SIGNET || storedHeight == null
                     ? startHeight : Math.max(startHeight, storedHeight - MAX_REORG_DEPTH + 1);
         }
 
@@ -1764,16 +1764,18 @@ public class ElectrumServer {
         }
     }
 
-    void verifyMainnetChain(ChainTip tip) throws ServerException {
-        if(Network.get() == Network.MAINNET) {
-            if(tip.height() < PurityHeaderState.ACTIVATION_HEIGHT) {
+    void verifyPurityChain(ChainTip tip) throws ServerException {
+        if(Network.get() == Network.MAINNET || Network.get() == Network.SIGNET) {
+            int activationHeight = Network.get() == Network.SIGNET ? PurityHeaderState.SIGNET_ACTIVATION_HEIGHT : PurityHeaderState.ACTIVATION_HEIGHT;
+            Sha256Hash activationHash = Network.get() == Network.SIGNET ? PurityHeaderState.SIGNET_ACTIVATION_HASH : PurityHeaderState.ACTIVATION_HASH;
+            if(tip.height() < activationHeight) {
                 throw new VerificationException("Server has not reached the Purity activation block");
             }
-            BlockHeaders activation = electrumServerRpc.getBlockHeadersChunk(getTransport(), PurityHeaderState.ACTIVATION_HEIGHT, 1);
-            if(activation.count != 1 || !new BlockHeader(Utils.hexToBytes(activation.hex)).getHash().equals(PurityHeaderState.ACTIVATION_HASH)) {
+            BlockHeaders activation = electrumServerRpc.getBlockHeadersChunk(getTransport(), activationHeight, 1);
+            if(activation.count != 1 || !new BlockHeader(Utils.hexToBytes(activation.hex)).getHash().equals(activationHash)) {
                 throw new VerificationException("Server does not serve the Purity activation block");
             }
-            syncHeadersTo(PurityHeaderState.ACTIVATION_HEIGHT);
+            syncHeadersTo(activationHeight);
         }
     }
 
@@ -2082,11 +2084,12 @@ public class ElectrumServer {
     }
 
     /**
-     * Whether the connected server must support transaction verification to be used at all, which is the case for the public server tier on mainnet.
+     * Whether the connected server must support transaction verification to be used at all, which is the case for the public server tier on mainnet and signet.
      * Turned off with verification itself, or a public server would still be rejected for lacking a call nothing is going to make.
      */
     static boolean isVerificationMandatory() {
-        return Config.get().isVerifyTransactions() && Config.get().getServerType() == ServerType.PUBLIC_ELECTRUM_SERVER && Network.get() == Network.MAINNET;
+        return Config.get().isVerifyTransactions() && Config.get().getServerType() == ServerType.PUBLIC_ELECTRUM_SERVER
+                && (Network.get() == Network.MAINNET || Network.get() == Network.SIGNET);
     }
 
     public Map<Sha256Hash, BlockTransaction> getTransactions(Wallet wallet, Map<BlockTransactionHash, Transaction> references, Map<Integer, BlockHeader> blockHeaderMap) throws ServerException {
@@ -3446,8 +3449,8 @@ public class ElectrumServer {
                                     throw new ServerException("Server is at height " + tip.height + ", below the last verified checkpoint at height " + maxCheckpointHeight);
                                 }
                             }
-                            if(Network.get() == Network.MAINNET && Config.get().getServerType() != ServerType.BITCOIN_CORE) {
-                                electrumServer.verifyMainnetChain(new ChainTip(tip.height, tip.getBlockHeader()));
+                            if((Network.get() == Network.MAINNET || Network.get() == Network.SIGNET) && Config.get().getServerType() != ServerType.BITCOIN_CORE) {
+                                electrumServer.verifyPurityChain(new ChainTip(tip.height, tip.getBlockHeader()));
                             }
                             initializeTip(tip);
                             subscribedScriptHashes.clear();
@@ -3455,10 +3458,12 @@ public class ElectrumServer {
                             tip = new BlockHeaderTip();
                         }
 
-                        if(Network.get() == Network.MAINNET) {
-                            BlockHeaders activation = electrumServerRpc.getBlockHeadersChunk(getTransport(), HeaderCheckpoints.PURITY_ACTIVATION_HEIGHT, 1);
+                        if(Network.get() == Network.MAINNET || Network.get() == Network.SIGNET) {
+                            int activationHeight = Network.get() == Network.SIGNET ? PurityHeaderState.SIGNET_ACTIVATION_HEIGHT : PurityHeaderState.ACTIVATION_HEIGHT;
+                            Sha256Hash activationHash = Network.get() == Network.SIGNET ? PurityHeaderState.SIGNET_ACTIVATION_HASH : PurityHeaderState.ACTIVATION_HASH;
+                            BlockHeaders activation = electrumServerRpc.getBlockHeadersChunk(getTransport(), activationHeight, 1);
                             BlockHeader header = new BlockHeader(Utils.hexToBytes(activation.hex));
-                            if(activation.count != 1 || !header.getHash().equals(HeaderCheckpoints.PURITY_ACTIVATION_HASH)) {
+                            if(activation.count != 1 || !header.getHash().equals(activationHash)) {
                                 throw new ServerException("Server is not on the Bitcoin Purity chain: activation block mismatch");
                             }
                         }

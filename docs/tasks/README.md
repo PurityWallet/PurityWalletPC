@@ -19,3 +19,6 @@ The released base task numbers 001–004 are retained; the mobile donation and i
 - [TASK-011: Unify release version 1.1.0 and correct the website](TASK-011.md)
 
 - [TASK-012: Build macOS DMGs in CI](TASK-012.md)
+- [TASK-013: Fix Purity signet restart and network defaults](TASK-013.md)
+- [TASK-014: Version the signet comparison build as 1.1.1](TASK-014.md)
+- [TASK-015: Enable signet legacy-chain detection and replay warnings](TASK-015.md)

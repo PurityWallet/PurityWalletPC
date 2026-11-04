@@ -94,7 +94,7 @@ public class UtxosController extends WalletFormController implements Initializab
         updateFields(walletUtxosEntry);
         utxosTable.initialize(walletUtxosEntry);
         utxosChart.initialize(walletUtxosEntry);
-        recheckLegacy.setVisible(Network.get() == Network.MAINNET);
+        recheckLegacy.setVisible(LegacyUtxoChecker.isSupported(Network.get()));
         recheckLegacy.managedProperty().bind(recheckLegacy.visibleProperty());
         checkLegacyUtxos();
 
@@ -112,7 +112,7 @@ public class UtxosController extends WalletFormController implements Initializab
 
     @FXML
     public void checkLegacyUtxos() {
-        if(Network.get() != Network.MAINNET || walletForm == null) {
+        if(!LegacyUtxoChecker.isSupported(Network.get()) || walletForm == null) {
             return;
         }
         if(legacyCheck != null) {

@@ -174,7 +174,7 @@ class PurityHeaderStateTest {
 
     @Test
     void refusesAPeerBelowActivationBeforeAnyNetworkRequest() {
-        assertThrows(VerificationException.class, () -> new ElectrumServer().verifyMainnetChain(
+        assertThrows(VerificationException.class, () -> new ElectrumServer().verifyPurityChain(
                 new com.sparrowwallet.sparrow.ChainTip(961636, headers.get(4))));
     }
 
@@ -239,10 +239,10 @@ class PurityHeaderStateTest {
                     });
             var tip = new com.sparrowwallet.sparrow.ChainTip(963650, headers.getLast());
             var server = new ElectrumServer();
-            assertThrows(VerificationException.class, () -> server.verifyMainnetChain(tip));
+            assertThrows(VerificationException.class, () -> server.verifyPurityChain(tip));
             assertEquals(1, calls.get());
             peerHeader.set(headers.get(5));
-            server.verifyMainnetChain(tip);
+            server.verifyPurityChain(tip);
             assertEquals(2, calls.get());
             assertEquals(963650, store.getTipHeight());
         } finally {

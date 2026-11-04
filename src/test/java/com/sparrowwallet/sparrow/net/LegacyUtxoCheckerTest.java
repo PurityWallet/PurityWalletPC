@@ -3,6 +3,7 @@ package com.sparrowwallet.sparrow.net;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sparrowwallet.tern.http.client.HttpResponseException;
+import com.sparrowwallet.drongo.Network;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
@@ -15,6 +16,18 @@ class LegacyUtxoCheckerTest {
     private static final String TXID = "ab".repeat(32);
     private static final LegacyUtxoChecker.Utxo COIN = new LegacyUtxoChecker.Utxo(TXID, 0, 1234, "0014abcd");
     private final ObjectMapper mapper = new ObjectMapper();
+
+    @Test
+    void legacyEndpointsMatchThePurityNetworkAndExcludeOtherNetworks() {
+        assertEquals("https://mempool.space/api", LegacyUtxoChecker.getApi(Network.MAINNET));
+        assertEquals("https://mempool.space/signet/api", LegacyUtxoChecker.getApi(Network.SIGNET));
+        for(Network network : Network.values()) {
+            assertEquals(network == Network.MAINNET || network == Network.SIGNET, LegacyUtxoChecker.isSupported(network));
+            if(network != Network.MAINNET && network != Network.SIGNET) {
+                assertNull(LegacyUtxoChecker.getApi(network));
+            }
+        }
+    }
 
     @Test
     void requiresMatchingUnspentOutputAndGroupsTransactionRequests() throws Exception {
@@ -98,8 +111,10 @@ class LegacyUtxoCheckerTest {
     void liveLegacyApiRecognizesMissingTransaction() throws Exception {
         var client = new com.sparrowwallet.tern.http.client.HttpClientService(10_000);
         try {
-            var checker = new LegacyUtxoChecker(path -> client.requestJson(LegacyUtxoChecker.API + path, JsonNode.class, Map.of("Cache-Control", "no-cache")));
-            assertEquals(ABSENT, checker.check(List.of(COIN)).get(COIN));
+            for(Network network : List.of(Network.MAINNET, Network.SIGNET)) {
+                var checker = new LegacyUtxoChecker(path -> client.requestJson(LegacyUtxoChecker.getApi(network) + path, JsonNode.class, Map.of("Cache-Control", "no-cache")));
+                assertEquals(ABSENT, checker.check(List.of(COIN)).get(COIN), network.getName());
+            }
         } finally {
             client.stop();
         }
