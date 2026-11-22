@@ -13,36 +13,36 @@ and signed releases must be verified separately for each PurityWallet release.
 ### Install Java
 
 Because PurityWallet bundles a Java runtime in the release binaries, it is essential to have the same version of Java installed when creating the release.
-The inherited Sparrow build used Eclipse Temurin 18.0.1+10 for Sparrow v1.6.6 through v1.9.1, and 22.0.2+9 for Sparrow v2.0.0 through v2.3.1. PurityWallet 1.1.0 uses Eclipse Temurin 25.0.2+10.
+The inherited Sparrow build used Eclipse Temurin 18.0.1+10 for Sparrow v1.6.6 through v1.9.1, and 22.0.2+9 for Sparrow v2.0.0 through v2.3.1. The current PurityWallet build uses Eclipse Temurin 25.0.5.1+2.
 
 Note: Do not install Java using a system package manager (e.g. apt, dnf, rpm). 
 Linux packages replace the JDK's bundled `cacerts` file with a symlink to the system CA certificates, which differ from those in the release tarballs and will produce a non-reproducible build.
 
 #### Java from Adoptium github repo
 
-It is available for all supported platforms from [Eclipse Temurin 25.0.2+10](https://github.com/adoptium/temurin25-binaries/releases/tag/jdk-25.0.2%2B10).
+It is available for all supported platforms from [Eclipse Temurin 25.0.5.1+2](https://github.com/adoptium/temurin25-binaries/releases/tag/jdk-25.0.5.1%2B2).
 
 For reference, the downloads are as follows:
-- [Linux x64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_x64_linux_hotspot_25.0.2_10.tar.gz)
-- [Linux aarch64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_aarch64_linux_hotspot_25.0.2_10.tar.gz)
-- [MacOS x64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_x64_mac_hotspot_25.0.2_10.tar.gz)
-- [MacOS aarch64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.2_10.tar.gz)
-- [Windows x64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_x64_windows_hotspot_25.0.2_10.zip)
+- [Linux x64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5.1%2B2/OpenJDK25U-jdk_x64_linux_hotspot_25.0.5.1_2.tar.gz)
+- [Linux aarch64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5.1%2B2/OpenJDK25U-jdk_aarch64_linux_hotspot_25.0.5.1_2.tar.gz)
+- [macOS x64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5.1%2B2/OpenJDK25U-jdk_x64_mac_hotspot_25.0.5.1_2.tar.gz)
+- [macOS aarch64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5.1%2B2/OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.5.1_2.tar.gz)
+- [Windows x64](https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5.1%2B2/OpenJDK25U-jdk_x64_windows_hotspot_25.0.5.1_2.zip)
 
 On Linux, extract the tarball and set `JAVA_HOME` to use it for the build:
 ```shell
-tar -xzf OpenJDK25U-jdk_x64_linux_hotspot_25.0.2_10.tar.gz
-export JAVA_HOME=$PWD/jdk-25.0.2+10
-export PATH=$JAVA_HOME/bin:$PATH
+tar -xzf OpenJDK25U-jdk_x64_linux_hotspot_25.0.5.1_2.tar.gz
+export JAVA_HOME="$PWD/jdk-25.0.5.1+2"
+export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-#### Java from SDKMAN
+#### Using a local JDK with SDKMAN
 
-An alternative option for all platforms is to use the [sdkman.io](https://sdkman.io/) package manager ([Git Bash for Windows](https://git-scm.com/download/win) is a good choice on that platform).
-See the installation [instructions here](https://sdkman.io/install).
-Once installed, run
+With [SDKMAN](https://sdkman.io/), register the extracted JDK from Adoptium under the name in `.sdkmanrc`. Set `JAVA_HOME` to the extracted JDK home first. On macOS, use the `Contents/Home` directory inside the extracted bundle.
+
 ```shell
-sdk install java 25.0.2-tem
+sdk install java 25.0.5.1-2-temurin "$JAVA_HOME"
+sdk env
 ```
 
 ### Other requirements
@@ -110,7 +110,7 @@ If there is output, please open an issue with detailed instructions to reproduce
 
 ## Windows x64 MSI installer
 
-Windows MSI packaging requires a Windows host, the pinned Temurin 25.0.2 JDK and WiX Toolset 3.x (`candle.exe` and `light.exe` on PATH). The current custom WiX template uses the WiX 3 schema.
+Windows MSI packaging requires a Windows host, the pinned Temurin 25.0.5.1+2 JDK and WiX Toolset 3.x (`candle.exe` and `light.exe` on PATH). The current custom WiX template uses the WiX 3 schema.
 
 Run on Windows:
 
@@ -127,7 +127,7 @@ The first verified Windows build is [run 40490528703](https://github.com/PurityW
 
 ## macOS CI DMGs
 
-The `macOS DMG` workflow (`.github/workflows/macos-package.yaml`) runs alongside Windows packaging for PRs targeting master, pushes to master and manual dispatch. Native `macos-15` and `macos-15-intel` runners build Apple Silicon and Intel packages, respectively, with Temurin 25.0.2. Gradle runs regression tests and produces `build/jpackage/puritywallet.app`; the workflow applies an ad hoc signature and creates a compressed DMG containing the app and an Applications shortcut.
+The `macOS DMG` workflow (`.github/workflows/macos-package.yaml`) runs alongside Windows packaging for PRs targeting master, pushes to master and manual dispatch. Native `macos-15` and `macos-15-intel` runners build Apple Silicon and Intel packages, respectively, with Temurin 25.0.5.1+2. Gradle runs regression tests and produces `build/jpackage/puritywallet.app`; the workflow applies an ad hoc signature and creates a compressed DMG containing the app and an Applications shortcut.
 
 CI mounts each DMG read-only and checks the launcher architecture, bundle identifier, bundle versions, code signature and `--version` output before uploading. Download `PurityWallet-1.1.0-macos-arm64` or `PurityWallet-1.1.0-macos-x64` from the successful run's **Artifacts** section. Each artifact contains `puritywallet-1.1.0-macos-<arch>.dmg` and its `.sha256` file. Extract both into the same directory and run `shasum -a 256 -c puritywallet-1.1.0-macos-<arch>.dmg.sha256` to verify the checksum.
 

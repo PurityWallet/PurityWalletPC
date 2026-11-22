@@ -25,10 +25,22 @@ class PackagingTest(unittest.TestCase):
         self.assertIn('imageName = "puritywallet"', build)
         self.assertNotIn("Craig Raw (UPLVMSK9D7)", build)
 
+    def test_builds_pin_the_exact_temurin_release(self):
+        for path in (
+            ".github/workflows/package.yaml",
+            ".github/workflows/macos-package.yaml",
+            ".github/workflows/windows-package.yaml",
+            ".github/workflows/test.yaml",
+            ".github/actions/update-gradle-verification/action.yaml",
+        ):
+            with self.subTest(path=path):
+                config = (ROOT / path).read_text()
+                self.assertRegex(config, r"(?m)^ +distribution: (?:temurin|'temurin')$")
+                self.assertIn("java-version: '25.0.5+100000002.0.LTS'", config)
+
     def test_windows_installer_workflow(self):
         workflow = (ROOT / ".github/workflows/windows-package.yaml").read_text()
         self.assertIn("runs-on: windows-2022", workflow)
-        self.assertIn("java-version: '25.0.2'", workflow)
         self.assertIn("./gradlew :test :jpackage", workflow)
         self.assertIn("puritywallet-${env:RELEASE_VERSION}-windows-x64.msi", workflow)
         self.assertIn("msiexec.exe", workflow)
@@ -51,7 +63,6 @@ class PackagingTest(unittest.TestCase):
         self.assertRegex(workflow, r"(?m)^  push:\n    branches: \[master\]$")
         self.assertIn("  workflow_dispatch:", workflow)
         self.assertIn("submodules: recursive", workflow)
-        self.assertIn("java-version: '25.0.2'", workflow)
         self.assertIn("python3 src/test/packaging_test.py", workflow)
         self.assertIn("xvfb-run --auto-servernum ./gradlew :test :desktopTest", workflow)
         self.assertIn("build/test-results/**", workflow)

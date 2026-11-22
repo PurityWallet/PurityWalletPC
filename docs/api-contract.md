@@ -14,6 +14,8 @@ Brand assets and documentation language changes do not change these external int
 
 The application reports version `1.1.1`, including in its local Electrum adapter banner. Native installer metadata uses the same version `1.1.1`.
 
+The launcher uses the Eclipse Temurin `25.0.5.1+2` runtime bundled with the distribution.
+
 Automatic PR CI does not change runtime APIs, wallet formats or dependency revisions. Its GitHub token has contents:read permission only. Test reports and unsigned Windows installers with SHA-256 files are CI artifacts, not published releases. The live network checkpoint task remains a separate, explicitly invoked acceptance check.
 
 macOS CI adds separate `PurityWallet-<version>-macos-arm64` and `PurityWallet-<version>-macos-x64` artifacts, each containing a DMG and a SHA-256 file. The app is ad hoc signed without notarization. The workflow has contents:read permission and no Apple secrets; runtime interfaces remain unchanged.

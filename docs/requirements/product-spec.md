@@ -28,6 +28,7 @@ Purity signet is supported with its own fork profile and services. Bitcoin testn
 Desktop and headless editions both use the PurityWallet product name and the `puritywallet` launcher.
 Retain the upstream Apache 2.0 LICENSE and copyright notices. Distributions include origin and modification notices.
 Use multi-resolution PurityWallet icons in macOS ICNS, Windows ICO and Linux PNG resources.
+Bundle Eclipse Temurin 25.0.5.1+2 in PurityWallet distributions. Pin release builds and CI to that exact JDK.
 
 ## Documentation
 

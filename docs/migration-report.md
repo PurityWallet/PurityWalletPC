@@ -205,3 +205,7 @@ The latest REQ-011 extends the mainnet replay checks to Purity signet. Two deskt
 Signet legacy acceptance passed 388 Java regressions, 7 desktop tests (with replay scenarios exercised on both networks), 13 packaging checks and the tagged live missing-transaction test against both corresponding Bitcoin APIs. Rendered signet UTXO and Send warnings were inspected. Only synthetic/public test data was queried; no transaction was signed or broadcast.
 
 The updated local arm64 package is `build/macos-release/puritywallet-1.1.1-signet-legacy-macos-arm64.dmg`, SHA-256 `35317568df8093da2b2ba2a8dc5d4f9be03f147838e8cd49481d25efa06bc93d`. Embedded legacy-checker bytecode matches the tested class. The DMG passed checksum, mounted version/architecture/shortcut and deep/strict ad hoc signature checks, then was detached. This is local acceptance only; no commit, push, hosted CI, Intel build or Chrome verdict is claimed.
+
+## Bundled Java update — 2026-11-22
+
+The packaging JDK is Eclipse Temurin `25.0.5.1+2`. Adoptium reports this release to the pinned `setup-java` action as `25.0.5+100000002.0.LTS`, which selects the exact build for each supported target. Local builds use the matching Adoptium archive. Gradle `9.1.0` and Drongo `13059ebc2979640b30bc1534b4584e2191578672` continue to build the runtime image and application. See [TASK-016](tasks/TASK-016.md) for validation.

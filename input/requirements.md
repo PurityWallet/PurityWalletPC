@@ -9,6 +9,7 @@
 - Change only this project. Do not modify dependency sources, including drongo and lark.
 - Replace application icons and Sparrow artwork throughout the UI with the existing brand assets from the local PurityWallet project.
 - Write all project documentation in English.
+- Bundle Eclipse Temurin 25.0.5.1+2 in PurityWallet distributions. Pin release builds and CI to that exact JDK.
 - The PurityWallet release version is 1.1.1, including application, archive and native installer metadata. Show a single version in the README.
 - Provide a Windows x64 MSI installer for release 1.1.1, built from the current PurityWallet sources on Windows.
 - Build macOS Apple Silicon and Intel DMGs in CI alongside Windows MSI validation for PRs targeting master, pushes to master and manual dispatch. Upload versioned DMGs and SHA-256 files as Actions artifacts. Verify the mounted app's version, architecture, bundle metadata and ad hoc signature without Apple credentials or notarization.
