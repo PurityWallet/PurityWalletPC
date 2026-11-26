@@ -11,9 +11,9 @@
 - Write all project documentation in English.
 - The PurityWallet release version is 1.1.1, including application, archive and native installer metadata. Show a single version in the README.
 - Provide a Windows x64 MSI installer for release 1.1.1, built from the current PurityWallet sources on Windows.
-- Build macOS Apple Silicon and Intel DMGs in CI alongside Windows MSI validation for PRs targeting master, pushes to master and manual dispatch. Upload versioned DMGs and SHA-256 files as Actions artifacts. Verify the mounted app's version, architecture, bundle metadata and ad hoc signature without Apple credentials or notarization.
+- Build macOS Apple Silicon DMGs in CI alongside Windows MSI validation for PRs targeting master, pushes to master and manual dispatch. Upload versioned DMGs and SHA-256 files as Actions artifacts. Verify the mounted app's version, architecture, bundle metadata and ad hoc signature without Apple credentials or notarization.
 - Signing private keys, certificates containing private keys, passwords and notarization credentials must never enter GitHub, including repository contents, Secrets, logs and artifacts. Official signing and notarization must run locally; all GitHub packaging workflows must work without those credentials.
-- Commit and push the CI changes to master to trigger Windows MSI and both macOS DMG builds. Defer official signing and notarization until the Apple Developer account's organization conversion is complete, keeping keys and passwords on the local machine.
+- Commit and push the CI changes to master to trigger Windows MSI and macOS DMG builds. Defer official signing and notarization until the Apple Developer account's organization conversion is complete, keeping keys and passwords on the local machine.
 
 # Mobile requirement adaptation
 
@@ -67,6 +67,9 @@ Make the desktop edition a Purity Wallet Connect (PWC) Provider over the LOCAL t
 - Fee estimates come only from the connected node (REQ-002). Broadcasting uses the current Electrum or Core connection.
 - REQ-011 applies to PWC: legacy-chain checks and the replay acknowledgement run before a PWC signature is approved and before a PWC broadcast; cancellation rejects the request.
 - Pairings and grants persist in an owner-only snapshot under the network data directory, saved on exit and after each user decision in the wallet.
-- The SDK ships native libraries for linux-x86_64, linux-aarch64, macos-aarch64 and windows-x86_64. On Intel Macs PWC is unavailable and reported as such; the rest of the application is unaffected and the Intel DMG continues to ship. Packages load the native library from the runtime `lib` directory, not from a temporary copy.
+- The SDK ships native libraries for linux-x86_64, linux-aarch64, macos-aarch64 and windows-x86_64. On Intel Macs PWC is unavailable and reported as such; the rest of the application is unaffected. CI builds no Intel DMG (REQ-015). Packages load the native library from the runtime `lib` directory, not from a temporary copy.
 - CI downloads the SDK with the read-only repository secret `PWC_PACKAGES_TOKEN`; it is not a signing or notarization credential. Dependency verification records the published checksums without relaxing the verification policy.
 - Acceptance uses regtest and test wallets only; no real transaction is signed or broadcast.
+
+## REQ-015: Single CI workflow — adopted
+Run the PR checks as three jobs of one workflow, `.github/workflows/ci.yaml`: Linux regression and desktop tests, the Windows MSI build, installation and checks, and the macOS Apple Silicon DMG build and checks. CI services that run one workflow per build, such as Buildkite running GitHub Actions workflows, then cover every check in one build. Keep the existing triggers, steps, permissions, secret policy and artifacts. Stop building the Intel macOS DMG in CI; the manually dispatched Package workflow is unchanged.

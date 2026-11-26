@@ -16,7 +16,7 @@ The application reports version `1.1.1`, including in its local Electrum adapter
 
 Automatic PR CI does not change runtime APIs, wallet formats or dependency revisions. Its GitHub token has contents:read permission only. Workflows that resolve dependencies also pass the read-only repository secret `PWC_PACKAGES_TOKEN` (with the actor as user name) to Gradle, at step level, to download the PWC SDK from GitHub Packages; it is not a signing or notarization credential. Pull requests from forks do not receive it and cannot resolve the SDK. Test reports and unsigned Windows installers with SHA-256 files are CI artifacts, not published releases. The live network checkpoint task remains a separate, explicitly invoked acceptance check.
 
-macOS CI adds separate `PurityWallet-<version>-macos-arm64` and `PurityWallet-<version>-macos-x64` artifacts, each containing a DMG and a SHA-256 file. The app is ad hoc signed without notarization. The workflow has contents:read permission and no Apple secrets; runtime interfaces remain unchanged.
+macOS CI adds a `PurityWallet-<version>-macos-arm64` artifact containing a DMG and a SHA-256 file. The app is ad hoc signed without notarization. The workflow has contents:read permission and no Apple secrets; runtime interfaces remain unchanged.
 
 All GitHub packaging workflows must operate without signing private keys, certificates containing private keys, passwords or notarization credentials. Those credentials must not be stored in GitHub repositories or Secrets, printed in logs, or included in artifacts. Official signing and notarization are local operations.
 

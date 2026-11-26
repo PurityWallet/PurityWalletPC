@@ -25,7 +25,7 @@ Local runs used OpenJDK 25.0.5 on Linux x86_64 with the SDK downloaded from GitH
 
 The integration test runs the real Provider and LOCAL endpoint with a regtest test wallet and a LOCAL client: pairing, HMAC authentication, `PERMISSION_REQUIRED` before a grant, a granted balance read, a rejected `psbt.sign` and reconnection after a restart. The desktop test drives the real prompt handler through pairing, a grant, an approved and a refused message signature, then revokes and unpairs from the Settings page; renders are in `build/qa/pwc-*.png`.
 
-The packaged Linux application, started on regtest with a private data directory, opened `~/.pwc/run/puritywallet-regtest.sock` (mode 0600) and answered `local.hello` from the pwc-testkit Python client. A copy of the packaged launcher running the SDK demo listened without extracting a temporary library. Windows and macOS packages are checked the same way in their CI jobs; Intel Macs check that PWC reports the missing library. No real transaction was signed or broadcast.
+The packaged Linux application, started on regtest with a private data directory, opened `~/.pwc/run/puritywallet-regtest.sock` (mode 0600) and answered `local.hello` from the pwc-testkit Python client. A copy of the packaged launcher running the SDK demo listened without extracting a temporary library. Windows and Apple Silicon macOS packages are checked the same way in the CI workflow's jobs (REQ-015). No real transaction was signed or broadcast.
 
 ## SDK limitations found
 

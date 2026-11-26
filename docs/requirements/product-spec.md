@@ -35,7 +35,7 @@ All project documentation, including requirements, architecture, API contracts, 
 
 Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.1.1`; MSI product metadata uses the same version `1.1.1`.
 
-macOS CI builds separate Apple Silicon (`arm64`) and Intel (`x64`) DMGs alongside Windows MSI validation on PRs targeting master, pushes to master and manual dispatch. Each DMG contains `puritywallet.app` and an Applications shortcut. Before uploading the DMG and SHA-256 as Actions artifacts, CI mounts the image and verifies the application's version, architecture, bundle identity and ad hoc signature. These builds do not require Apple credentials and are not notarized.
+macOS CI builds an Apple Silicon (`arm64`) DMG alongside Windows MSI validation on PRs targeting master, pushes to master and manual dispatch. Each DMG contains `puritywallet.app` and an Applications shortcut. Before uploading the DMG and SHA-256 as Actions artifacts, CI mounts the image and verifies the application's version, architecture, bundle identity and ad hoc signature. These builds do not require Apple credentials and are not notarized.
 
 Signing private keys, certificates containing private keys, passwords and notarization credentials must remain outside GitHub repository contents, Secrets, logs and artifacts. Official signing and notarization run locally. Both automatic and manually dispatched GitHub packaging workflows use credential-free ad hoc macOS signing only.
 
@@ -44,7 +44,7 @@ Push the CI configuration to master to trigger installer generation. Official si
 # Product specification
 
 ## REQ-010: Automatic PR validation — adopted
-GitHub Actions validates opened, reopened and updated PRs targeting master and pushes to master. Tests runs the pinned Java 25 regression suite and desktop tests under Xvfb with isolated test homes. Windows Installer runs regression and packaging checks, builds an unsigned MSI, installs it and verifies the installed version. Both workflows support manual dispatch, use read-only repository permissions and retain test reports. CI acceptance requires successful runs for the current PR revision; a rejected dispatch or an empty checks list is not a pass. No release publication or dependency-source changes are included.
+GitHub Actions validates opened, reopened and updated PRs targeting master and pushes to master with one CI workflow (REQ-015). Its tests job runs the pinned Java 25 regression suite and desktop tests under Xvfb with isolated test homes. Its Windows job runs regression and packaging checks, builds an unsigned MSI, installs it and verifies the installed version. The workflow supports manual dispatch, use read-only repository permissions and retain test reports. CI acceptance requires successful runs for the current PR revision; a rejected dispatch or an empty checks list is not a pass. No release publication or dependency-source changes are included.
 
 ## REQ-001: PurityWallet brand — adopted
 Use PurityWallet for visible application, CLI and package names. Derive desktop icons from the mobile blue master. Preserve Java packages, dependency coordinates, application identities, storage paths, wallet formats, upstream attribution and licenses. Help, issues and releases use https://github.com/PurityWallet/PurityWalletPC. Disable upstream automatic version checks and hide their switch; offer manual releases access.
@@ -104,7 +104,18 @@ PurityWallet desktop is a PWC LOCAL Provider (Core v0.2.1 over LOCAL v0.1.0) bui
 | Fees and broadcast | Connected-node estimates only; broadcast through the current connection, `NETWORK_UNAVAILABLE` when offline |
 | Replay protection | REQ-011 checks and acknowledgement before approving a PWC signature and before a PWC broadcast |
 | Persistence | `<data dir>/pwc/provider-state`, directory 0700, file 0600, atomic replace; saved on exit and after each pairing, grant, revocation and unpairing in the wallet |
-| Platforms | linux-x86_64, linux-aarch64, macos-aarch64, windows-x86_64. Intel Macs show PWC as unavailable |
+| Platforms | linux-x86_64, linux-aarch64, macos-aarch64, windows-x86_64. Intel Macs show PWC as unavailable; CI builds no Intel DMG |
 
 Prompts follow PWC-UX-001: pairing shows the peer process and the six-digit code, with the claimed name marked unverified; permission prompts let the user narrow scopes, accounts, expiry and amount limits; PSBT prompts show the SDK-computed outputs, fee, fee rate, total leaving the account and change; message prompts show the exact message, address and format. Withdrawn prompts close automatically and closing a prompt rejects it. Endpoint errors (already running, name taken, unsafe directory, path too long, I/O) are reported in the PWC page without affecting the rest of the wallet.
 
+## REQ-015: Single CI workflow — adopted
+
+`.github/workflows/ci.yaml` (workflow name `CI`) holds every PR check as three jobs, so one build of a CI service that runs one workflow at a time covers all of them:
+
+| Job | Runner | Checks |
+|---|---|---|
+| `tests` | `ubuntu-22.04` | Packaging checks, regression and desktop tests under Xvfb |
+| `windows-installer` | `windows-2022` | Regression tests, MSI build, silent installation, installed version and PWC native library |
+| `macos-dmg` | `macos-15` | Regression tests, Apple Silicon app and DMG, mounted-image checks, ad hoc signature and PWC native library |
+
+Triggers, permissions, the `PWC_PACKAGES_TOKEN` step-level secret and artifact names are unchanged. CI no longer builds an Intel DMG; the manual Package workflow still can.

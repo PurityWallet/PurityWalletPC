@@ -1,6 +1,6 @@
-# Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
-name: Windows Installer
+name: CI
 
+# One workflow with every PR check, so CI services that run one workflow per build cover all of them (REQ-015).
 on:
   workflow_dispatch:
   pull_request:
@@ -14,17 +14,53 @@ permissions:
   contents: read
 
 concurrency:
-  group: windows-installer-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
   JDK_JAVAC_OPTIONS: '-Xlint:-module'
-  PYTHONUTF8: '1'
 
 jobs:
-  installer:
+  tests:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up JDK 25.0.2
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        with:
+          distribution: temurin
+          java-version: '25.0.2'
+      - name: Install desktop test runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes libgtk-3-0 libasound2 xvfb xauth
+      - name: Check packaging and CI configuration
+        run: python3 src/test/packaging_test.py
+      - name: Run regression and desktop tests
+        run: xvfb-run --auto-servernum ./gradlew :test :desktopTest --console=plain
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
+      - name: Upload test results and desktop renders
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-linux-test-results
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+            build/qa/**
+          if-no-files-found: ignore
+
+  windows-installer:
     runs-on: windows-2022
     timeout-minutes: 45
+    env:
+      PYTHONUTF8: '1'
     defaults:
       run:
         shell: pwsh
@@ -120,6 +156,91 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: PurityWallet-windows-test-results
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: ignore
+
+  macos-dmg:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up JDK 25.0.2
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        with:
+          distribution: temurin
+          java-version: '25.0.2'
+      - name: Check packaging and release metadata
+        run: |
+          release_version=$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)
+          test -n "$release_version"
+          echo "RELEASE_VERSION=$release_version" >> "$GITHUB_ENV"
+          python3 src/test/packaging_test.py
+      - name: Test and build macOS app
+        run: ./gradlew :test :jpackage --console=plain
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
+      - name: Create DMG and SHA-256
+        run: |
+          app=build/jpackage/puritywallet.app
+          codesign --force --deep --sign - "$app"
+          mkdir -p build/dmg-root build/macos-release
+          ditto "$app" build/dmg-root/puritywallet.app
+          ln -s /Applications build/dmg-root/Applications
+          dmg_name="puritywallet-${RELEASE_VERSION}-macos-arm64.dmg"
+          hdiutil create -volname PurityWallet -srcfolder build/dmg-root -format UDZO "build/macos-release/$dmg_name"
+          cd build/macos-release
+          shasum -a 256 "$dmg_name" > "$dmg_name.sha256"
+      - name: Mount DMG and verify the packaged app
+        run: |
+          dmg="build/macos-release/puritywallet-${RELEASE_VERSION}-macos-arm64.dmg"
+          hdiutil verify "$dmg"
+          mount_dir="$RUNNER_TEMP/puritywallet-dmg"
+          mkdir -p "$mount_dir"
+          hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount_dir"
+          trap 'hdiutil detach "$mount_dir"' EXIT
+          app="$mount_dir/puritywallet.app"
+          test "$(readlink "$mount_dir/Applications")" = /Applications
+          test "$(lipo -archs "$app/Contents/MacOS/puritywallet")" = arm64
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$RELEASE_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" = "$RELEASE_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" = org.bitcoinpurity.puritywallet
+          codesign --verify --deep --strict "$app"
+          test "$("$app/Contents/MacOS/puritywallet" --version)" = "PurityWallet $RELEASE_VERSION"
+          # The same launcher and JVM options run the SDK demo from a copy; the runtime holds no SDK native resources,
+          # so the library loads from runtime/lib or not at all.
+          runtime="$app/Contents/runtime/Contents/Home/lib"
+          ! "$JAVA_HOME/bin/jimage" list "$runtime/modules" | grep -q pwc_provider_jni
+          check_app="$RUNNER_TEMP/pwccheck.app"
+          ditto "$app" "$check_app"
+          cp "$check_app/Contents/MacOS/puritywallet" "$check_app/Contents/MacOS/pwccheck"
+          sed 's#^app.mainmodule=.*#app.mainmodule=org.bitcoinpurity.pwc.provider/org.bitcoinpurity.pwc.provider.demo.Main#' "$check_app/Contents/app/puritywallet.cfg" > "$check_app/Contents/app/pwccheck.cfg"
+          pwc_dir="$RUNNER_TEMP/pwcrun"
+          test -f "$runtime/libpwc_provider_jni.dylib"
+          "$check_app/Contents/MacOS/pwccheck" --dir "$pwc_dir" > "$RUNNER_TEMP/pwccheck.txt" 2>&1 &
+          pwccheck_pid=$!
+          for i in $(seq 1 60); do test -S "$pwc_dir/pwc-provider.sock" && break; sleep 0.5; done
+          kill "$pwccheck_pid" || true
+          grep -q 'pwc-provider listening on' "$RUNNER_TEMP/pwccheck.txt" || { cat "$RUNNER_TEMP/pwccheck.txt"; exit 1; }
+      - name: Upload DMG and SHA-256
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-${{ env.RELEASE_VERSION }}-macos-arm64
+          path: build/macos-release/*
+          if-no-files-found: error
+      - name: Upload macOS test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-macos-arm64-test-results
           path: |
             build/reports/tests/**
             build/test-results/**

@@ -37,19 +37,20 @@ class PackagingTest(unittest.TestCase):
         self.assertIn('imageName = "puritywallet"', build)
         self.assertNotIn("Craig Raw (UPLVMSK9D7)", build)
 
-    def test_windows_installer_workflow(self):
-        workflow = (ROOT / ".github/workflows/windows-package.yaml").read_text()
-        self.assertIn("runs-on: windows-2022", workflow)
-        self.assertIn("java-version: '25.0.2'", workflow)
-        self.assertIn("./gradlew :test :jpackage", workflow)
-        self.assertIn("puritywallet-${env:RELEASE_VERSION}-windows-x64.msi", workflow)
-        self.assertIn("msiexec.exe", workflow)
-        self.assertIn("--version", workflow)
-        self.assertIn("actions/upload-artifact@", workflow)
+    def test_ci_is_one_workflow_with_three_jobs(self):
+        """REQ-015: one workflow, so a CI service that runs one workflow per build covers every check."""
+        for name in ["test.yaml", "windows-package.yaml", "macos-package.yaml"]:
+            self.assertFalse((ROOT / ".github/workflows" / name).exists(), name)
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("name: CI", workflow)
+        self.assertRegex(workflow, r"(?m)^  tests:\n    runs-on: ubuntu-22.04$")
+        self.assertRegex(workflow, r"(?m)^  windows-installer:\n    runs-on: windows-2022$")
+        self.assertRegex(workflow, r"(?m)^  macos-dmg:\n    runs-on: macos-15$")
+        self.assertNotIn("macos-15-intel", workflow)
         self.assertNotIn("matrix:", workflow)
 
-    def test_windows_validation_runs_for_pr_updates(self):
-        workflow = (ROOT / ".github/workflows/windows-package.yaml").read_text()
+    def test_ci_runs_for_pr_updates_master_pushes_and_dispatch(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertRegex(workflow, r"(?m)^  pull_request:\n    branches: \[master\]$")
         self.assertRegex(workflow, r"(?m)^  push:\n    branches:\n      - master$")
         self.assertIn("  workflow_dispatch:", workflow)
@@ -57,25 +58,33 @@ class PackagingTest(unittest.TestCase):
         self.assertNotIn("pull_request_target", workflow)
         self.assert_only_pwc_packages_secret(workflow)
 
-    def test_pr_tests_include_desktop_and_isolated_data(self):
-        workflow = (ROOT / ".github/workflows/test.yaml").read_text()
-        self.assertRegex(workflow, r"(?m)^  pull_request:\n    branches: \[master\]$")
-        self.assertRegex(workflow, r"(?m)^  push:\n    branches: \[master\]$")
-        self.assertIn("  workflow_dispatch:", workflow)
+    def test_ci_tests_include_desktop_and_isolated_data(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertIn("submodules: recursive", workflow)
         self.assertIn("java-version: '25.0.2'", workflow)
         self.assertIn("python3 src/test/packaging_test.py", workflow)
         self.assertIn("xvfb-run --auto-servernum ./gradlew :test :desktopTest", workflow)
         self.assertIn("build/test-results/**", workflow)
-        self.assertIn("  contents: read", workflow)
-        self.assertNotIn("pull_request_target", workflow)
-        self.assert_only_pwc_packages_secret(workflow)
         build = (ROOT / "build.gradle").read_text()
         self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('test-home')", build)
         self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('desktop-test-home')", build)
 
+    def test_ci_builds_and_installs_the_windows_msi(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("./gradlew :test :jpackage", workflow)
+        self.assertIn("puritywallet-${env:RELEASE_VERSION}-windows-x64.msi", workflow)
+        self.assertIn("msiexec.exe", workflow)
+        self.assertIn("--version", workflow)
+        self.assertIn("actions/upload-artifact@", workflow)
+
+    def test_ci_builds_the_apple_silicon_dmg_only(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("puritywallet-${RELEASE_VERSION}-macos-arm64.dmg", workflow)
+        self.assertIn('test "$(lipo -archs "$app/Contents/MacOS/puritywallet")" = arm64', workflow)
+        self.assertIn("codesign --verify --deep --strict", workflow)
+
     def test_every_dependency_workflow_can_download_the_pwc_sdk(self):
-        for name in ["macos-package.yaml", "package.yaml", "dependency-verification.yaml"]:
+        for name in ["package.yaml", "dependency-verification.yaml"]:
             self.assert_only_pwc_packages_secret((ROOT / ".github/workflows" / name).read_text())
 
     def test_pwc_sdk_dependency_and_native_library_packaging(self):
@@ -95,13 +104,11 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("MIT License", (ROOT / "THIRD-PARTY-LICENSES/PWC-Provider-SDK-MIT.txt").read_text())
 
     def test_packaged_apps_load_the_pwc_library_from_the_runtime(self):
-        windows = (ROOT / ".github/workflows/windows-package.yaml").read_text()
-        self.assertIn("runtime\\lib\\pwc_provider_jni.dll", windows)
-        self.assertIn("cannot determine the endpoint directory", windows)
-        macos = (ROOT / ".github/workflows/macos-package.yaml").read_text()
-        self.assertIn("libpwc_provider_jni.dylib", macos)
-        self.assertIn("pwc-provider listening on", macos)
-        self.assertIn("no native library for macos-x86_64", macos)
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("runtime\\lib\\pwc_provider_jni.dll", workflow)
+        self.assertIn("cannot determine the endpoint directory", workflow)
+        self.assertIn("libpwc_provider_jni.dylib", workflow)
+        self.assertIn("pwc-provider listening on", workflow)
 
     def test_macos_identity(self):
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as f:

@@ -23,3 +23,4 @@ The released base task numbers 001–004 are retained; the mobile donation and i
 - [TASK-014: Version the signet comparison build as 1.1.1](TASK-014.md)
 - [TASK-015: Enable signet legacy-chain detection and replay warnings](TASK-015.md)
 - [TASK-016: Integrate the PWC Java Provider SDK](TASK-016.md)
+- [TASK-017: Run every PR check from one CI workflow](TASK-017.md)

@@ -20,9 +20,9 @@ All project documentation is written in English.
 
 The application, Gradle archives and native package metadata all use version `1.1.1`. jpackage uses the Gradle version directly; macOS bundle version fields use the same numeric value.
 
-PR CI uses separate Tests (Linux, with Xvfb for JavaFX) and Windows Installer workflows. Both run for PRs targeting master and pushes to master, with manual dispatch retained. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Test reports and installer checksums are uploaded as CI artifacts; no release is published.
+PR CI is one workflow, `.github/workflows/ci.yaml`, with `tests` (Linux, with Xvfb for JavaFX), `windows-installer` and `macos-dmg` jobs (REQ-015). It runs for PRs targeting master and pushes to master, with manual dispatch retained, and one build of a CI service that runs a single workflow covers every check. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Test reports and installer checksums are uploaded as CI artifacts; no release is published.
 
-The macOS DMG workflow runs on the same events, independently of Windows. A two-runner matrix builds native arm64 and x64 applications with the pinned JDK. Gradle produces the app image; `hdiutil` wraps an ad hoc signed copy and an Applications shortcut in a compressed DMG. Mounted-image checks precede artifact upload. This workflow uses no Apple signing credentials and performs no notarization or release publication.
+The `macos-dmg` job runs independently of the Windows job on a native `macos-15` runner and builds the Apple Silicon application with the pinned JDK; CI builds no Intel DMG. Gradle produces the app image; `hdiutil` wraps an ad hoc signed copy and an Applications shortcut in a compressed DMG. Mounted-image checks precede artifact upload. This job uses no Apple signing credentials and performs no notarization or release publication.
 
 All GitHub packaging workflows, including the manual Package workflow, use credential-free ad hoc macOS signatures. Signing private keys, passwords and notarization credentials remain on the local signing machine and must not enter GitHub repositories, Secrets, logs or artifacts.
 
