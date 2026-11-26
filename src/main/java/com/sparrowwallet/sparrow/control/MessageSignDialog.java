@@ -627,7 +627,7 @@ public class MessageSignDialog extends Dialog<ButtonBar.ButtonData> {
 
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save Text File");
-        fileChooser.setInitialFileName("signmessage.txt");
+        AppServices.setInitialFileName(fileChooser, "signmessage.txt");
         AppServices.moveToActiveWindowScreen(window, 800, 450);
         File file = fileChooser.showSaveDialog(window);
         if(file != null) {
@@ -651,7 +651,7 @@ public class MessageSignDialog extends Dialog<ButtonBar.ButtonData> {
         Stage window = new Stage();
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save PSBT File");
-        fileChooser.setInitialFileName("bip322-signmessage.psbt");
+        AppServices.setInitialFileName(fileChooser, "bip322-signmessage.psbt");
         AppServices.moveToActiveWindowScreen(window, 800, 450);
         File file = fileChooser.showSaveDialog(window);
         if(file != null) {
