@@ -56,6 +56,9 @@ jobs:
           python3 src/test/packaging_test.py
       - name: Test and build macOS app
         run: ./gradlew :test :jpackage --console=plain
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Create DMG and SHA-256
         run: |
           app=build/jpackage/puritywallet.app
@@ -83,6 +86,27 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" = org.bitcoinpurity.puritywallet
           codesign --verify --deep --strict "$app"
           test "$("$app/Contents/MacOS/puritywallet" --version)" = "PurityWallet $RELEASE_VERSION"
+          # The same launcher and JVM options run the SDK demo from a copy; the runtime holds no SDK native resources,
+          # so the library loads from runtime/lib or not at all. The SDK has no macos-x86_64 library.
+          runtime="$app/Contents/runtime/Contents/Home/lib"
+          ! "$JAVA_HOME/bin/jimage" list "$runtime/modules" | grep -q pwc_provider_jni
+          check_app="$RUNNER_TEMP/pwccheck.app"
+          ditto "$app" "$check_app"
+          cp "$check_app/Contents/MacOS/puritywallet" "$check_app/Contents/MacOS/pwccheck"
+          sed 's#^app.mainmodule=.*#app.mainmodule=org.bitcoinpurity.pwc.provider/org.bitcoinpurity.pwc.provider.demo.Main#' "$check_app/Contents/app/puritywallet.cfg" > "$check_app/Contents/app/pwccheck.cfg"
+          pwc_dir="$RUNNER_TEMP/pwcrun"
+          if [ "$MACOS_ARCH" = arm64 ]; then
+            test -f "$runtime/libpwc_provider_jni.dylib"
+            "$check_app/Contents/MacOS/pwccheck" --dir "$pwc_dir" > "$RUNNER_TEMP/pwccheck.txt" 2>&1 &
+            pwccheck_pid=$!
+            for i in $(seq 1 60); do test -S "$pwc_dir/pwc-provider.sock" && break; sleep 0.5; done
+            kill "$pwccheck_pid" || true
+            grep -q 'pwc-provider listening on' "$RUNNER_TEMP/pwccheck.txt" || { cat "$RUNNER_TEMP/pwccheck.txt"; exit 1; }
+          else
+            test ! -e "$runtime/libpwc_provider_jni.dylib"
+            "$check_app/Contents/MacOS/pwccheck" --dir "$pwc_dir" > "$RUNNER_TEMP/pwccheck.txt" 2>&1 || true
+            grep -q 'no native library for macos-x86_64' "$RUNNER_TEMP/pwccheck.txt" || { cat "$RUNNER_TEMP/pwccheck.txt"; exit 1; }
+          fi
       - name: Upload DMG and SHA-256
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

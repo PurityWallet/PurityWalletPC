@@ -31,6 +31,9 @@ jobs:
         run: ./gradlew -v
       - name: Build with Gradle
         run: ./gradlew jpackage
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Package macOS DMG without Apple credentials
         if: ${{ runner.os == 'macOS' }}
         shell: bash
@@ -46,9 +49,15 @@ jobs:
       - name: Package Windows zip distribution
         if: ${{ runner.os == 'Windows' }}
         run: ./gradlew packageZipDistribution
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Package Linux tar distribution
         if: ${{ runner.os == 'Linux' }}
         run: ./gradlew packageTarDistribution
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Repackage Linux deb distribution
         if: ${{ runner.os == 'Linux' }}
         run: ./repackage.sh
@@ -63,9 +72,15 @@ jobs:
       - name: Headless build with Gradle
         if: ${{ runner.os == 'Linux' }}
         run: ./gradlew -Djava.awt.headless=true clean jpackage
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Package Linux headless tar distribution
         if: ${{ runner.os == 'Linux' }}
         run: ./gradlew -Djava.awt.headless=true packageTarDistribution
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Repackage Linux headless deb distribution
         if: ${{ runner.os == 'Linux' }}
         run: ./repackage.sh

@@ -57,6 +57,7 @@ public class Config {
     private boolean signBsmsExports = false;
     private boolean preventSleep = false;
     private boolean verifyTransactions = true;
+    private boolean pwcEnabled = true;
     private Boolean connectToBroadcast;
     private Boolean connectToResolve;
     private Boolean suggestSendToMany;
@@ -381,6 +382,15 @@ public class Config {
 
     public void setVerifyTransactions(boolean verifyTransactions) {
         this.verifyTransactions = verifyTransactions;
+        flush();
+    }
+
+    public boolean isPwcEnabled() {
+        return pwcEnabled;
+    }
+
+    public void setPwcEnabled(boolean pwcEnabled) {
+        this.pwcEnabled = pwcEnabled;
         flush();
     }
 

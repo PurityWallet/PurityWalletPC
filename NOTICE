@@ -18,6 +18,12 @@ Copyright (c) 2009-2010 Satoshi Nakamoto
 Copyright (c) 2009-2022 The Bitcoin Core developers
 See THIRD-PARTY-LICENSES/BitcoinPurity-MIT.txt.
 
+The PWC Java Provider SDK (org.bitcoinpurity.pwc:pwc-provider-java 0.2.0,
+https://github.com/BitcoinPurity/pwc-spec), including its native library,
+is MIT licensed:
+Copyright (c) 2026 Bitcoin Purity contributors
+See THIRD-PARTY-LICENSES/PWC-Provider-SDK-MIT.txt.
+
 Dependencies retain their own licenses and notices. Runtime dependency
 license information is preserved in the distribution's legal directory.
 

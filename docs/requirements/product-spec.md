@@ -86,3 +86,25 @@ Switching to signet must restart successfully rather than exit at the network re
 ## REQ-013: Versioned signet comparison build
 
 Use 1.1.1 consistently in application, archives and native bundle/installer metadata to distinguish the signet comparison build. Preserve behavior, dependencies and signing policy. Compare normal Chrome download behavior using the recorded DMG checksum. A changed hash does not establish Google review approval or a cleared verdict.
+
+## REQ-014: PWC LOCAL provider — adopted
+
+PurityWallet desktop is a PWC LOCAL Provider (Core v0.2.1 over LOCAL v0.1.0) built on the PWC Java Provider SDK 0.2.0. Applications on the same computer connect through a Unix socket (macOS, Linux) or named pipe (Windows), pair, request permissions, read balances, UTXOs, addresses and transactions, create PSBTs, and request PSBT and message signatures. Every decision is taken by the user in the wallet.
+
+| Item | Specification |
+|---|---|
+| Switch | Settings → PWC; enabled by default; desktop mode only |
+| Provider id | `puritywallet` (mainnet), `puritywallet-signet`, `puritywallet-regtest` |
+| Endpoint | The SDK default endpoint directory (`$XDG_RUNTIME_DIR/pwc`, `~/.pwc/run`, `~/Library/Application Support/PWC/run`) or the per-user named pipe |
+| Wallets | Open wallets only; one PWC wallet per wallet file; the master wallet and each non-nested child wallet are accounts |
+| Ids | HMAC-SHA256 of the account output descriptor (wallet: of the master descriptor) under a random salt stored in `<data dir>/pwc/id-salt`; first 16 bytes in lower-case hex |
+| States | Ready; syncing while history loads; locked behind Lock Wallet. Unopened wallets are not listed |
+| Signing accounts | Software single-sig P2WPKH: PSBT and `bip322-simple`; software single-sig P2PKH: `legacy` messages; USB hardware single-sig P2WPKH: PSBT. Other single-sig P2WPKH and P2PKH accounts are read-only; multisig, nested SegWit, Taproot and silent-payment accounts are not exposed (the SDK represents P2WPKH and P2PKH only) |
+| Passwords | Asked after approval, in a separate dialog; one decrypted copy per signature, cleared afterwards |
+| Fees and broadcast | Connected-node estimates only; broadcast through the current connection, `NETWORK_UNAVAILABLE` when offline |
+| Replay protection | REQ-011 checks and acknowledgement before approving a PWC signature and before a PWC broadcast |
+| Persistence | `<data dir>/pwc/provider-state`, directory 0700, file 0600, atomic replace; saved on exit and after each pairing, grant, revocation and unpairing in the wallet |
+| Platforms | linux-x86_64, linux-aarch64, macos-aarch64, windows-x86_64. Intel Macs show PWC as unavailable |
+
+Prompts follow PWC-UX-001: pairing shows the peer process and the six-digit code, with the claimed name marked unverified; permission prompts let the user narrow scopes, accounts, expiry and amount limits; PSBT prompts show the SDK-computed outputs, fee, fee rate, total leaving the account and change; message prompts show the exact message, address and format. Withdrawn prompts close automatically and closing a prompt rejects it. Endpoint errors (already running, name taken, unsafe directory, path too long, I/O) are reported in the PWC page without affecting the rest of the wallet.
+

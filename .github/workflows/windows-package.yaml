@@ -49,6 +49,9 @@ jobs:
           python src/test/packaging_test.py
       - name: Test and build Windows MSI
         run: ./gradlew :test :jpackage --console=plain
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Prepare versioned Windows installer
         run: |
           $msis = @(Get-ChildItem build/jpackage -Filter *.msi)
@@ -79,6 +82,23 @@ jobs:
             throw "Installed application version check failed: $actual"
           }
           Write-Output $actual
+      - name: Check that the installed app loads the PWC library from its runtime
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'puritywallet-installed'
+          if (-not (Test-Path (Join-Path $installDir 'runtime\lib\pwc_provider_jni.dll'))) { throw 'pwc_provider_jni.dll is missing from runtime\lib' }
+          if (& "$env:JAVA_HOME\bin\jimage.exe" list (Join-Path $installDir 'runtime\lib\modules') | Select-String 'pwc_provider_jni') { throw 'The runtime image still holds the SDK native resources' }
+          # The same launcher and JVM options run the SDK demo; without the resources it can only load the library from runtime\lib
+          Copy-Item (Join-Path $installDir 'puritywallet.exe') (Join-Path $installDir 'pwccheck.exe')
+          (Get-Content (Join-Path $installDir 'app\puritywallet.cfg')) -replace '^app.mainmodule=.*', 'app.mainmodule=org.bitcoinpurity.pwc.provider/org.bitcoinpurity.pwc.provider.demo.Main' | Set-Content (Join-Path $installDir 'app\pwccheck.cfg')
+          $out = Join-Path $env:RUNNER_TEMP 'pwccheck-out.txt'
+          $err = Join-Path $env:RUNNER_TEMP 'pwccheck-err.txt'
+          Start-Process (Join-Path $installDir 'pwccheck.exe') -Wait -RedirectStandardOutput $out -RedirectStandardError $err
+          $text = (Get-Content $out -Raw) + (Get-Content $err -Raw)
+          # On Windows the demo has no endpoint directory, which it reports after loading the library
+          if ($text -match 'UnsatisfiedLinkError' -or $text -notmatch 'cannot determine the endpoint directory') {
+            Write-Output $text
+            throw 'The PWC native library did not load from runtime\lib'
+          }
       - name: Upload Windows installer and SHA-256
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

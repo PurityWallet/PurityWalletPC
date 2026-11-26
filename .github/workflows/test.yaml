@@ -39,6 +39,9 @@ jobs:
         run: python3 src/test/packaging_test.py
       - name: Run regression and desktop tests
         run: xvfb-run --auto-servernum ./gradlew :test :desktopTest --console=plain
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
       - name: Upload test results and desktop renders
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

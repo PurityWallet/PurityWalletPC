@@ -27,6 +27,16 @@ version = '1.1.1'
 repositories {
     mavenCentral()
     maven { url = uri('https://code.sparrowwallet.com/api/packages/sparrowwallet/maven') }
+    maven {
+        url = uri('https://maven.pkg.github.com/BitcoinPurity/pwc-spec')
+        credentials {
+            username = System.getenv('PWC_PACKAGES_USER')
+            password = System.getenv('PWC_PACKAGES_TOKEN')
+        }
+        content {
+            includeGroup 'org.bitcoinpurity.pwc'
+        }
+    }
 }
 
 tasks.withType(AbstractArchiveTask).configureEach {
@@ -112,6 +122,7 @@ dependencies {
     implementation('com.sparrowwallet:toucan:0.9.0')
     implementation('com.jcraft:jzlib:1.1.3')
     implementation('io.github.doblon8:jzbar:0.4.0')
+    implementation('org.bitcoinpurity.pwc:pwc-provider-java:0.2.0')
     testImplementation('org.junit.jupiter:junit-jupiter-api:5.14.1')
     testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.14.1')
     testRuntimeOnly('org.junit.platform:junit-platform-launcher')
@@ -132,7 +143,7 @@ test {
         excludeTags 'checkpoint'
     }
     jvmArgs = ["--enable-native-access=ALL-UNNAMED"]
-    exclude '**/PurityDesktopTest.class'
+    exclude '**/PurityDesktopTest.class', '**/pwc/PwcDesktopTest.class'
     systemProperty 'puritywallet.home', layout.buildDirectory.dir('test-home').get().asFile.absolutePath
 }
 
@@ -141,7 +152,9 @@ tasks.register('desktopTest', Test) {
     group = 'verification'
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
-    include '**/PurityDesktopTest.class'
+    include '**/PurityDesktopTest.class', '**/pwc/PwcDesktopTest.class'
+    //Each class starts and exits its own JavaFX toolkit
+    forkEvery = 1
     useJUnitPlatform()
     jvmArgs = ["--enable-native-access=ALL-UNNAMED"]
     systemProperty 'purity.ui.tests', 'true'
@@ -176,6 +189,7 @@ application {
                                  "--enable-native-access=org.usb4java",
                                  "--enable-native-access=io.github.doblon8.jzbar",
                                  "--enable-native-access=io.github.doblon8.openpnp.capture",
+                                 "--enable-native-access=org.bitcoinpurity.pwc.provider",
                                  "--add-opens=javafx.graphics/com.sun.javafx.css=org.controlsfx.controls",
                                  "--add-opens=javafx.graphics/javafx.scene=org.controlsfx.controls",
                                  "--add-opens=javafx.controls/com.sun.javafx.scene.control.behavior=org.controlsfx.controls",
@@ -245,7 +259,8 @@ jlink {
                    'glob:/org.hid4java/linux-*/**,' +
                    'glob:/org.hid4java/win32-*/**,' +
                    'glob:/io.github.doblon8.jzbar/native/**,' +
-                   'glob:/io.github.doblon8.openpnp.capture/native/**']
+                   'glob:/io.github.doblon8.openpnp.capture/native/**,' +
+                   'glob:/org.bitcoinpurity.pwc.provider/org/bitcoinpurity/pwc/provider/native/**']
     launcher {
         name = 'puritywallet'
         jvmArgs = ["--enable-native-access=com.sparrowwallet.drongo",
@@ -256,6 +271,7 @@ jlink {
                    "--enable-native-access=org.usb4java",
                    "--enable-native-access=io.github.doblon8.jzbar",
                    "--enable-native-access=io.github.doblon8.openpnp.capture",
+                   "--enable-native-access=org.bitcoinpurity.pwc.provider",
                    "--enable-native-access=com.sparrowwallet.sparrow",
                    "--add-opens=javafx.graphics/com.sun.javafx.css=org.controlsfx.controls",
                    "--add-opens=javafx.graphics/javafx.scene=org.controlsfx.controls",
@@ -288,7 +304,7 @@ jlink {
                    "--add-reads=org.flywaydb.core=java.desktop"]
 
         if(os.windows) {
-            jvmArgs.addAll(["-Djavax.accessibility.assistive_technologies", "-Djavax.accessibility.screen_magnifier_present=false"])
+            jvmArgs.addAll(["-Djavax.accessibility.assistive_technologies", "-Djavax.accessibility.screen_magnifier_present=false", '-Djava.library.path=$ROOTDIR\\runtime\\lib'])
         }
         if(os.macOsX) {
             jvmArgs.addAll(["-Dprism.lcdtext=false", "--add-opens=javafx.graphics/com.sun.glass.ui.mac=com.sparrowwallet.merged.module"])
@@ -479,6 +495,7 @@ if(os.macOsX) {
 
 def serialOs = os.macOsX ? "OSX" : (os.windows ? "Windows" : "Linux")
 def serialArch = osArch == "aarch64" ? "aarch64" : "x86_64"
+def pwcPlatform = "${os.macOsX ? 'macos' : (os.windows ? 'windows' : 'linux')}-${releaseArch}"
 
 // Map of JAR name prefix to the include glob for platform-specific natives inside the JAR.
 def nativeLibJars = [
@@ -489,6 +506,7 @@ def nativeLibJars = [
         'usb4java-'            : "org/usb4java/${jnaPlatform}/*",
         'jzbar-'               : "native/${osName}/${osArch}/*",
         'openpnp-capture-java-': "native/${osName}/${osArch}/*",
+        'pwc-provider-java-'   : "org/bitcoinpurity/pwc/provider/native/${pwcPlatform}/*",
 ]
 
 tasks.register('extractNativeLibraries') {

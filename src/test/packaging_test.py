@@ -6,7 +6,19 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
+PWC_TOKEN = "PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}"
+PWC_USER = "PWC_PACKAGES_USER: ${{ github.actor }}"
+
 class PackagingTest(unittest.TestCase):
+    def assert_only_pwc_packages_secret(self, workflow):
+        """The read-only GitHub Packages token for the PWC SDK is the only secret a workflow may use (REQ-014)."""
+        self.assertIn(PWC_TOKEN, workflow)
+        self.assertIn(PWC_USER, workflow)
+        self.assertNotIn("secrets.", workflow.replace("secrets.PWC_PACKAGES_TOKEN", ""))
+        for line in workflow.splitlines():
+            if "PWC_PACKAGES_TOKEN:" in line:
+                self.assertEqual(10, len(line) - len(line.lstrip(" ")), "the token is passed to individual steps only: " + line)
+
     def test_release_version(self):
         build = (ROOT / "build.gradle").read_text()
         self.assertIn("version = '1.1.1'", build)
@@ -43,7 +55,7 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("  workflow_dispatch:", workflow)
         self.assertIn("  contents: read", workflow)
         self.assertNotIn("pull_request_target", workflow)
-        self.assertNotIn("secrets.", workflow)
+        self.assert_only_pwc_packages_secret(workflow)
 
     def test_pr_tests_include_desktop_and_isolated_data(self):
         workflow = (ROOT / ".github/workflows/test.yaml").read_text()
@@ -57,10 +69,39 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("build/test-results/**", workflow)
         self.assertIn("  contents: read", workflow)
         self.assertNotIn("pull_request_target", workflow)
-        self.assertNotIn("secrets.", workflow)
+        self.assert_only_pwc_packages_secret(workflow)
         build = (ROOT / "build.gradle").read_text()
         self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('test-home')", build)
         self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('desktop-test-home')", build)
+
+    def test_every_dependency_workflow_can_download_the_pwc_sdk(self):
+        for name in ["macos-package.yaml", "package.yaml", "dependency-verification.yaml"]:
+            self.assert_only_pwc_packages_secret((ROOT / ".github/workflows" / name).read_text())
+
+    def test_pwc_sdk_dependency_and_native_library_packaging(self):
+        build = (ROOT / "build.gradle").read_text()
+        self.assertIn("url = uri('https://maven.pkg.github.com/BitcoinPurity/pwc-spec')", build)
+        self.assertIn("includeGroup 'org.bitcoinpurity.pwc'", build)
+        self.assertIn("System.getenv('PWC_PACKAGES_TOKEN')", build)
+        self.assertIn("implementation('org.bitcoinpurity.pwc:pwc-provider-java:0.2.0')", build)
+        self.assertEqual(2, build.count('"--enable-native-access=org.bitcoinpurity.pwc.provider"'))
+        self.assertIn("glob:/org.bitcoinpurity.pwc.provider/org/bitcoinpurity/pwc/provider/native/**", build)
+        self.assertIn("'pwc-provider-java-'   : \"org/bitcoinpurity/pwc/provider/native/${pwcPlatform}/*\"", build)
+        self.assertIn("-Djava.library.path=$ROOTDIR\\\\runtime\\\\lib", build)
+        self.assertIn("requires org.bitcoinpurity.pwc.provider;", (ROOT / "src/main/java/module-info.java").read_text())
+        verification = (ROOT / "gradle/verification-metadata.xml").read_text()
+        self.assertIn('<component group="org.bitcoinpurity.pwc" name="pwc-provider-java" version="0.2.0">', verification)
+        self.assertIn("PWC-Provider-SDK-MIT.txt", (ROOT / "NOTICE").read_text())
+        self.assertIn("MIT License", (ROOT / "THIRD-PARTY-LICENSES/PWC-Provider-SDK-MIT.txt").read_text())
+
+    def test_packaged_apps_load_the_pwc_library_from_the_runtime(self):
+        windows = (ROOT / ".github/workflows/windows-package.yaml").read_text()
+        self.assertIn("runtime\\lib\\pwc_provider_jni.dll", windows)
+        self.assertIn("cannot determine the endpoint directory", windows)
+        macos = (ROOT / ".github/workflows/macos-package.yaml").read_text()
+        self.assertIn("libpwc_provider_jni.dylib", macos)
+        self.assertIn("pwc-provider listening on", macos)
+        self.assertIn("no native library for macos-x86_64", macos)
 
     def test_macos_identity(self):
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as f:
