@@ -53,7 +53,7 @@ public class LegacyUtxoChecker {
         Map<String, List<Utxo>> groups = new LinkedHashMap<>();
         for(Utxo input : inputs) {
             results.put(input, Status.UNKNOWN);
-            if(input.txid() != null && input.txid().matches("[a-fA-F0-9]{64}") && input.index() >= 0 && input.index() <= Integer.MAX_VALUE) {
+            if(input.value() >= 0 && input.script() != null && input.txid() != null && input.txid().matches("[a-fA-F0-9]{64}") && input.index() >= 0 && input.index() <= Integer.MAX_VALUE) {
                 groups.computeIfAbsent(input.txid(), _ -> new ArrayList<>()).add(input);
             }
         }
@@ -92,7 +92,7 @@ public class LegacyUtxoChecker {
                 JsonNode value = output.path("value");
                 JsonNode script = output.path("scriptpubkey");
                 if(!value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() < 0 || !script.isTextual()
-                        || !script.textValue().matches("(?i)([a-f0-9]{2})*") || !spent.isBoolean() || coin.value() < 0 || coin.script() == null) {
+                        || !script.textValue().matches("(?i)([a-f0-9]{2})*") || !spent.isBoolean()) {
                     continue;
                 }
                 results.put(coin, !spent.booleanValue() && value.longValue() == coin.value() && script.textValue().equalsIgnoreCase(coin.script()) ? Status.SHARED : Status.ABSENT);

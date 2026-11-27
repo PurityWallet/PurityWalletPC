@@ -141,7 +141,9 @@ public class PwcSettingsController extends SettingsDetailController {
         PairedClient client = clients.getSelectionModel().getSelectedItem();
         if(client != null && AppServices.showWarningDialog("Unpair application", "Unpair \"" + client.claimedName()
                 + "\"? It loses all access and must pair again to reconnect.", ButtonType.CANCEL, ButtonType.OK).filter(ButtonType.OK::equals).isPresent()) {
-            service().unpairClient(client.clientId());
+            if(!service().unpairClient(client.clientId())) {
+                AppServices.showErrorDialog("PWC Unpairing", "Could not save the unpairing. Check the PWC status for details.");
+            }
             refresh(null);
         }
     }
@@ -150,7 +152,9 @@ public class PwcSettingsController extends SettingsDetailController {
     public void revoke(ActionEvent event) {
         Grant grant = grants.getSelectionModel().getSelectedItem();
         if(grant != null) {
-            service().revokeGrant(grant.grantId());
+            if(!service().revokeGrant(grant.grantId())) {
+                AppServices.showErrorDialog("PWC Access", "Could not save the revocation. Check the PWC status for details.");
+            }
             refresh(null);
         }
     }

@@ -66,7 +66,7 @@ Make the desktop edition a Purity Wallet Connect (PWC) Provider over the LOCAL t
 - Prompts follow PWC-UX-001: the application's claimed name is marked unverified; signing prompts show only what the wallet computed from the transaction; approval is never the default button.
 - Fee estimates come only from the connected node (REQ-002). Broadcasting uses the current Electrum or Core connection.
 - REQ-011 applies to PWC: the legacy-chain check and the replay acknowledgement run before a PWC signature is approved, and cancellation rejects the request. A PWC broadcast uses the result cleared at signing (REQ-017).
-- Pairings and grants persist in an owner-only snapshot under the network data directory, saved on exit and after each user decision in the wallet.
+- Pairings and grants persist in an owner-only snapshot under the network data directory, saved on exit and after each user decision in the wallet. After an interrupted PWC session, require applications to pair again to prevent stale grants from being restored.
 - The SDK ships native libraries for linux-x86_64, linux-aarch64, macos-aarch64 and windows-x86_64. On Intel Macs PWC is unavailable and reported as such; the rest of the application is unaffected. CI builds no Intel DMG (REQ-015). Packages load the native library from the runtime `lib` directory, not from a temporary copy.
 - CI downloads the SDK with the read-only repository secret `PWC_PACKAGES_TOKEN`; it is not a signing or notarization credential. Dependency verification records the published checksums without relaxing the verification policy.
 - Acceptance uses regtest and test wallets only; no real transaction is signed or broadcast.

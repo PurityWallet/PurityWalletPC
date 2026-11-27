@@ -24,7 +24,7 @@ class PwcPermissionDialog extends PwcPromptDialog {
     static {
         SCOPES.put("wallets:read", "See the names of the selected wallets and accounts (low)");
         SCOPES.put("balances:read", "See balances of the selected accounts (medium)");
-        SCOPES.put("addresses:read", "See existing receive addresses (medium)");
+        SCOPES.put("addresses:read", "See receive and change addresses, whether they were used, and their labels (medium)");
         SCOPES.put("addresses:create", "Create new receive addresses (low)");
         SCOPES.put("transactions:read", "See transaction history (high)");
         SCOPES.put("utxos:read", "See individual coins and their details (high)");

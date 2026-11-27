@@ -118,6 +118,21 @@ class PwcLocalIntegrationTest {
                 client.authenticate(credentials);
                 assertEquals(1, client.call("wallet.list", Map.of()).get("wallets").size(), "pairing and grant survive a restart");
             }
+            service.stop();
+            PwcState state = new PwcState(new File(dir, "pwc"));
+            try(var interrupted = state.openSession()) {
+                interrupted.markRunning();
+            }
+
+            service.start();
+            assertEquals(PwcService.Status.RUNNING, service.getStatus(), service.getMessage());
+            assertTrue(service.getMessage().contains("Pair applications again"));
+            assertTrue(service.pairedClients().isEmpty());
+            assertTrue(service.grants().isEmpty());
+            try(LocalTestClient client = LocalTestClient.connect(service.getEndpoint())) {
+                client.hello();
+                assertThrows(LocalTestClient.RpcError.class, () -> client.authenticate(credentials));
+            }
         } finally {
             service.stop();
         }

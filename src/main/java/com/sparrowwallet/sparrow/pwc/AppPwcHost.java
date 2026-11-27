@@ -18,27 +18,43 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** The running desktop application as seen by the PWC backend: a view republished on the JavaFX thread after every application event. */
 public class AppPwcHost implements PwcHost {
     private static final Logger log = LoggerFactory.getLogger(AppPwcHost.class);
 
-    private final Set<Wallet> syncing = ConcurrentHashMap.newKeySet();
-    private final Map<Wallet, Instant> synced = new ConcurrentHashMap<>();
+    private final Set<Wallet> syncing = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
+    private final Map<Wallet, Instant> synced = Collections.synchronizedMap(new WeakHashMap<>());
     private final AtomicBoolean scheduled = new AtomicBoolean();
     private volatile PwcView view = PwcView.EMPTY;
+    private volatile boolean active;
 
     private static Wallet master(Wallet wallet) {
         return wallet.isMasterWallet() ? wallet : wallet.getMasterWallet();
     }
 
+    public void setActive(boolean active) {
+        this.active = active;
+        if(active) {
+            publishSoon();
+        } else {
+            syncing.clear();
+            synced.clear();
+            view = PwcView.EMPTY;
+        }
+    }
+
     @Subscribe
     public void walletHistoryStatus(WalletHistoryStatusEvent event) {
+        if(!active) {
+            return;
+        }
         Wallet master = master(event.getWallet());
         if(event.isLoading()) {
             syncing.add(master);
@@ -57,10 +73,12 @@ public class AppPwcHost implements PwcHost {
     }
 
     public void publishSoon() {
-        if(scheduled.compareAndSet(false, true)) {
+        if(active && scheduled.compareAndSet(false, true)) {
             Platform.runLater(() -> {
                 scheduled.set(false);
-                publish();
+                if(active) {
+                    publish();
+                }
             });
         }
     }
@@ -68,7 +86,11 @@ public class AppPwcHost implements PwcHost {
     /** Called on the JavaFX thread. */
     void publish() {
         Config config = Config.get();
-        view = PwcView.capture(openWalletForms(), syncing::contains, synced::get, connected(), AppServices.getCurrentBlockHeight(),
+        List<WalletForm> forms = openWalletForms();
+        List<Wallet> openMasters = forms.stream().map(WalletForm::getMasterWallet).toList();
+        syncing.retainAll(openMasters);
+        synced.keySet().retainAll(openMasters);
+        view = PwcView.capture(forms, syncing::contains, synced::get, connected(), AppServices.getCurrentBlockHeight(),
                 AppServices.getTargetBlockFeeRates(), AppServices.getMinimumRelayFeeRate(), config.isIncludeMempoolOutputs(), config.isGroupByAddress());
     }
 
@@ -93,7 +115,7 @@ public class AppPwcHost implements PwcHost {
     }
 
     protected Sha256Hash send(Transaction transaction) throws Exception {
-        return new ElectrumServer().broadcastTransaction(transaction, null);
+        return new ElectrumServer().broadcastTransaction(transaction, null, false);
     }
 
     @Override

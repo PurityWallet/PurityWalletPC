@@ -42,6 +42,41 @@ class PwcStateTest {
     }
 
     @Test
+    void anInterruptedSessionCannotRestoreAnOlderSnapshot() throws Exception {
+        PwcState state = new PwcState(new File(dir, "pwc"));
+        byte[] snapshot = {1, 2, 3};
+        state.save(snapshot);
+        try(var session = state.openSession()) {
+            assertFalse(session.interrupted());
+            session.markRunning();
+            assertThrows(java.io.IOException.class, state::openSession);
+        }
+        try(var recovered = state.openSession()) {
+            assertTrue(recovered.interrupted());
+            state.save(new byte[] {4});
+            recovered.markStopped();
+        }
+        try(var clean = state.openSession()) {
+            assertFalse(clean.interrupted());
+            assertArrayEquals(new byte[] {4}, state.load());
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledOnOs(OS.WINDOWS)
+    void windowsSnapshotAclAllowsOnlyItsOwner() throws Exception {
+        File pwcDir = new File(dir, "pwc");
+        PwcState state = new PwcState(pwcDir);
+        state.save(new byte[] {1});
+        for(var path : java.util.List.of(pwcDir.toPath(), pwcDir.toPath().resolve(PwcState.STATE_FILE))) {
+            var acl = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
+            assertFalse(acl.getAcl().isEmpty());
+            var owner = acl.getOwner();
+            assertTrue(acl.getAcl().stream().allMatch(entry -> entry.principal().equals(owner)));
+        }
+    }
+
+    @Test
     void quarantineKeepsTheCorruptSnapshotAside() throws Exception {
         File pwcDir = new File(dir, "pwc");
         PwcState state = new PwcState(pwcDir);

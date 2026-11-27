@@ -455,6 +455,24 @@ class PwcWalletBackendTest {
         assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1))));
     }
 
+    @Test
+    void unusedApprovalsAreClearedAtExpiryAndOnClose() {
+        Wallet expired = PwcTestWallets.software("Expired", ScriptType.P2WPKH);
+        backend.unlocked("expired", "message", expired);
+        clock.advance(PwcWalletBackend.APPROVAL_LIFETIME);
+        backend.expireApprovals();
+        assertTrue(isCleared(expired));
+
+        Wallet pending = PwcTestWallets.software("Pending", ScriptType.P2WPKH);
+        backend.unlocked("pending", "message", pending);
+        backend.close();
+        assertTrue(isCleared(pending));
+
+        Wallet late = PwcTestWallets.software("Late", ScriptType.P2WPKH);
+        backend.unlocked("late", "message", late);
+        assertTrue(isCleared(late));
+    }
+
     private static Wallet decrypted(Wallet encrypted) {
         Wallet copy = encrypted.copy();
         copy.decrypt("pass");
