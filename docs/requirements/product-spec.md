@@ -89,7 +89,7 @@ Use 1.1.1 consistently in application, archives and native bundle/installer meta
 
 ## REQ-014: PWC LOCAL provider — adopted
 
-PurityWallet desktop is a PWC LOCAL Provider (Core v0.2.1 over LOCAL v0.1.0) built on the PWC Java Provider SDK 0.2.0. Applications on the same computer connect through a Unix socket (macOS, Linux) or named pipe (Windows), pair, request permissions, read balances, UTXOs, addresses and transactions, create PSBTs, and request PSBT and message signatures. Every decision is taken by the user in the wallet.
+PurityWallet desktop is a PWC LOCAL Provider (Core v0.2.1 over LOCAL v0.1.0) built on the PWC Java Provider SDK 0.2.1 (REQ-017). Applications on the same computer connect through a Unix socket (macOS, Linux) or named pipe (Windows), pair, request permissions, read balances, UTXOs, addresses and transactions, create PSBTs, and request PSBT and message signatures. Every decision is taken by the user in the wallet.
 
 | Item | Specification |
 |---|---|
@@ -100,9 +100,9 @@ PurityWallet desktop is a PWC LOCAL Provider (Core v0.2.1 over LOCAL v0.1.0) bui
 | Ids | HMAC-SHA256 of the account output descriptor (wallet: of the master descriptor) under a random salt stored in `<data dir>/pwc/id-salt`; first 16 bytes in lower-case hex |
 | States | Ready; syncing while history loads; locked behind Lock Wallet. Unopened wallets are not listed |
 | Signing accounts | Software single-sig P2WPKH: PSBT and `bip322-simple`; software single-sig P2PKH: `legacy` messages; USB hardware single-sig P2WPKH: PSBT. Other single-sig P2WPKH and P2PKH accounts are read-only; multisig, nested SegWit, Taproot and silent-payment accounts are not exposed (the SDK represents P2WPKH and P2PKH only) |
-| Passwords | Asked after approval, in a separate dialog; one decrypted copy per signature, cleared afterwards |
-| Fees and broadcast | Connected-node estimates only; broadcast through the current connection, `NETWORK_UNAVAILABLE` when offline |
-| Replay protection | REQ-011 checks and acknowledgement before approving a PWC signature and before a PWC broadcast |
+| Passwords | Asked after approval, in a separate dialog; one decrypted copy per signature, bound to that request, valid 2 minutes, cleared afterwards (REQ-017) |
+| Fees and broadcast | Connected-node estimates only; broadcast through the current connection within 30 seconds, `NETWORK_UNAVAILABLE` when offline, unreachable or late (REQ-017) |
+| Replay protection | REQ-011 check and acknowledgement before approving a PWC signature; the clearance covers the PWC broadcast of that transaction for 30 minutes; other PWC broadcasts on mainnet and signet get `POLICY_VIOLATION` (REQ-017) |
 | Persistence | `<data dir>/pwc/provider-state`, directory 0700, file 0600, atomic replace; saved on exit and after each pairing, grant, revocation and unpairing in the wallet |
 | Platforms | linux-x86_64, linux-aarch64, macos-aarch64, windows-x86_64. Intel Macs show PWC as unavailable; CI builds no Intel DMG |
 
@@ -131,3 +131,23 @@ Every job of `ci.yaml` runs `:jacocoTestReport` after `:test`. The report covers
 | `macos-dmg` | `PurityWallet-macos-arm64-coverage` |
 
 Coverage never fails a build and is not uploaded to an external service.
+
+## REQ-017: PWC backend never waits — adopted
+
+PWC Java Provider SDK 0.2.1 calls the wallet backend without its state lock, so a slow backend method delays every other Core request of every paired application. The wallet backend therefore never waits for the user or the JavaFX thread, and every method has a bounded duration.
+
+| Item | Specification |
+|---|---|
+| SDK | `org.bitcoinpurity.pwc:pwc-provider-java:0.2.1`; `local.hello` reports the REQ-014 provider id |
+| Wallet data | Read from an immutable view of the open wallets and the connection, republished by the JavaFX thread after wallet and connection events; no backend method touches JavaFX objects or live wallet models |
+| New addresses | Chosen from the view, never handed out twice in a session; the label and gap limit are applied to the wallet on the JavaFX thread without waiting |
+| User interaction | Only in the prompt flow, after the user approves and before the prompt is answered: replay acknowledgement, password, device confirmation |
+| Hardware signing | The device dialog runs in the PSBT prompt flow; `signPsbt` uses the verified device signatures for that exact PSBT, account and inputs; cancelling, unplugging or a withdrawn prompt rejects the request |
+| Kept approvals | A decrypted wallet or device signature is bound to the account and the exact PSBT and inputs (or message, address and format), used once and valid 2 minutes; decrypted keys are cleared after use or expiry |
+| Replay clearance | Recorded in the PSBT prompt when the check was absent or the user acknowledged a shared or unknown result; matched to the broadcast by version, lock time, inputs with sequences and outputs; valid 30 minutes and consumed by a successful broadcast |
+| Uncleared broadcast | On mainnet and Purity signet, `POLICY_VIOLATION` without a dialog or network request; the user can broadcast from the wallet UI under REQ-011. Regtest needs no clearance |
+| Broadcast limit | 30 seconds; timeout or unreachable server `NETWORK_UNAVAILABLE`; server refusal `TRANSACTION_REJECTED`; the txid is returned in display order |
+| Errors | Backend methods return valid results or throw `PwcException`; unexpected failures become `INTERNAL_ERROR` (or an empty answer for methods without errors) and are logged |
+| Host calls | Pairings, grants, revocation, unpairing and state saving stay on the JavaFX thread |
+
+Acceptance: regression tests first, then an end-to-end regtest run with test wallets and the pwc-spec Python client (`pwc-client-ffi`, `try_spend.py` flow): a self-transfer reaches the mempool, and a second application's `account.getBalance` is answered within 2 seconds while the first application's signing prompt is open.
