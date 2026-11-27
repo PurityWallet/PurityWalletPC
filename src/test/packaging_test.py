@@ -120,6 +120,8 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("cannot determine the endpoint directory", workflow)
         self.assertIn("libpwc_provider_jni.dylib", workflow)
         self.assertIn("pwc-provider listening on", workflow)
+        # macOS limits socket paths to 104 bytes, which runner temporary directories can exceed
+        self.assertIn('pwc_dir="$(mktemp -d /tmp/pwc.XXXXXX)"', workflow)
 
     def test_macos_identity(self):
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as f:

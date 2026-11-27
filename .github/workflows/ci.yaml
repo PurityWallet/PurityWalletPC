@@ -228,12 +228,14 @@ jobs:
           ditto "$app" "$check_app"
           cp "$check_app/Contents/MacOS/puritywallet" "$check_app/Contents/MacOS/pwccheck"
           sed 's#^app.mainmodule=.*#app.mainmodule=org.bitcoinpurity.pwc.provider/org.bitcoinpurity.pwc.provider.demo.Main#' "$check_app/Contents/app/puritywallet.cfg" > "$check_app/Contents/app/pwccheck.cfg"
-          pwc_dir="$RUNNER_TEMP/pwcrun"
+          # macOS limits socket paths to 104 bytes, which the runner temporary directory can exceed
+          pwc_dir="$(mktemp -d /tmp/pwc.XXXXXX)"
           test -f "$runtime/libpwc_provider_jni.dylib"
           "$check_app/Contents/MacOS/pwccheck" --dir "$pwc_dir" > "$RUNNER_TEMP/pwccheck.txt" 2>&1 &
           pwccheck_pid=$!
           for i in $(seq 1 60); do test -S "$pwc_dir/pwc-provider.sock" && break; sleep 0.5; done
           kill "$pwccheck_pid" || true
+          rm -rf "$pwc_dir"
           grep -q 'pwc-provider listening on' "$RUNNER_TEMP/pwccheck.txt" || { cat "$RUNNER_TEMP/pwccheck.txt"; exit 1; }
       - name: Upload DMG and SHA-256
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
