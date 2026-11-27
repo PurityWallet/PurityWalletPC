@@ -72,6 +72,9 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("java-version: '25.0.2'", workflow)
         self.assertIn("python3 src/test/packaging_test.py", workflow)
         self.assertIn("xvfb-run --auto-servernum ./gradlew :test :desktopTest", workflow)
+        # Ubuntu 24.04 self-hosted agents name the GTK and ALSA runtimes with a t64 suffix
+        self.assertIn("libgtk-3-0t64 libasound2t64", workflow)
+        self.assertIn("libgtk-3-0 libasound2", workflow)
         self.assertIn("build/test-results/**", workflow)
         build = (ROOT / "build.gradle").read_text()
         self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('test-home')", build)
