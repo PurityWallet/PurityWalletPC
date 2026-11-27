@@ -153,6 +153,14 @@ jacoco {
 }
 
 jacocoTestReport {
+    //Interface code and hardware card drivers have no unit tests, so the report covers the remaining packages
+    classDirectories.setFrom(sourceSets.main.output.classesDirs.collect { dir ->
+        fileTree(dir) {
+            exclude 'com/sparrowwallet/sparrow/control/**', 'com/sparrowwallet/sparrow/glyphfont/**', 'com/sparrowwallet/sparrow/keystoreimport/**',
+                    'com/sparrowwallet/sparrow/settings/**', 'com/sparrowwallet/sparrow/terminal/**', 'com/sparrowwallet/sparrow/transaction/**',
+                    'com/sparrowwallet/sparrow/io/ckcard/**', 'com/sparrowwallet/sparrow/io/keycard/**', 'com/sparrowwallet/sparrow/io/satochip/**'
+        }
+    })
     reports {
         xml.required = true
         html.required = true

@@ -146,6 +146,9 @@ class PackagingTest(unittest.TestCase):
         # Coverage is reported only, and only for the :test suite
         self.assertNotIn("jacocoTestCoverageVerification", build)
         self.assertEqual(2, build.count("jacoco.enabled = false"))
+        # JavaFX and terminal interface packages and hardware card drivers are left out of the report
+        for package in ("control", "glyphfont", "keystoreimport", "settings", "terminal", "transaction", "io/ckcard", "io/keycard", "io/satochip"):
+            self.assertIn(f"'com/sparrowwallet/sparrow/{package}/**'", build)
         verification = (ROOT / "gradle/verification-metadata.xml").read_text()
         self.assertIn('id="A413F67D71BEEC23ADD0CE0ACB43338E060CF9FA" group="org.jacoco"', verification)
         self.assertIn("pub    CB43338E060CF9FA", (ROOT / "gradle/verification-keyring.keys").read_text())

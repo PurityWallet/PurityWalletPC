@@ -122,7 +122,7 @@ Triggers, permissions, the `PWC_PACKAGES_TOKEN` step-level secret and artifact n
 
 ## REQ-016: Test coverage reports in CI — adopted
 
-Every job of `ci.yaml` runs `:jacocoTestReport` after `:test`. The report covers the main source set under the `:test` suite only; `desktopTest` and `verifyCheckpoint` run without the JaCoCo agent. Each job prints the line and branch coverage in its log and uploads the HTML and XML report as an artifact:
+Every job of `ci.yaml` runs `:jacocoTestReport` after `:test`. The report covers the main source set under the `:test` suite only; `desktopTest` and `verifyCheckpoint` run without the JaCoCo agent. The interface-only and hardware card driver packages `control`, `glyphfont`, `keystoreimport`, `settings`, `terminal`, `transaction`, `io/ckcard`, `io/keycard` and `io/satochip` are excluded from the report; mixed packages such as `wallet`, `pwc` and the root package are included. Each job prints the line and branch coverage in its log and uploads the HTML and XML report as an artifact:
 
 | Job | Artifact |
 |---|---|
