@@ -2,7 +2,7 @@ package com.sparrowwallet.sparrow.pwc;
 
 import java.util.Set;
 
-/** The platforms whose native library the PWC SDK 0.2.0 jar carries. */
+/** The platforms whose native library the PWC SDK 0.2.1 jar carries. */
 final class PwcPlatform {
     private PwcPlatform() {}
 
