@@ -1,57 +1,37 @@
 package com.sparrowwallet.sparrow.pwc;
 
+import com.github.arteam.simplejsonrpc.client.exception.JsonRpcException;
 import com.google.common.eventbus.Subscribe;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.Transaction;
-import com.sparrowwallet.drongo.psbt.PSBT;
-import com.sparrowwallet.drongo.wallet.BlockTransaction;
-import com.sparrowwallet.drongo.wallet.Keystore;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.sparrow.AppServices;
-import com.sparrowwallet.sparrow.control.DeviceSignDialog;
-import com.sparrowwallet.sparrow.control.LegacyReplayGuard;
 import com.sparrowwallet.sparrow.event.WalletHistoryStatusEvent;
+import com.sparrowwallet.sparrow.io.Config;
 import com.sparrowwallet.sparrow.net.ElectrumServer;
-import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
+import com.sparrowwallet.sparrow.net.ServerException;
 import com.sparrowwallet.sparrow.wallet.WalletForm;
 import javafx.application.Platform;
-import javafx.scene.control.Button;
-import javafx.stage.Window;
+import org.bitcoinpurity.pwc.provider.ErrorCode;
+import org.bitcoinpurity.pwc.provider.PwcException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/** The running desktop application as seen by the PWC backend. */
+/** The running desktop application as seen by the PWC backend: a view republished on the JavaFX thread after every application event. */
 public class AppPwcHost implements PwcHost {
-    private static final long WALLET_THREAD_TIMEOUT_SECONDS = 30;
+    private static final Logger log = LoggerFactory.getLogger(AppPwcHost.class);
 
-    private final Set<Wallet> syncing = new HashSet<>();
-    private final Map<Wallet, Instant> synced = new HashMap<>();
-
-    @Override
-    public <T> T onWalletThread(Callable<T> action) throws Exception {
-        if(Platform.isFxApplicationThread()) {
-            return action.call();
-        }
-        FutureTask<T> task = new FutureTask<>(action);
-        Platform.runLater(task);
-        try {
-            //A bounded wait, since the JavaFX thread stops running tasks when the application quits
-            return task.get(WALLET_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch(ExecutionException e) {
-            throw e.getCause() instanceof Exception cause ? cause : e;
-        }
-    }
-
-    @Override
-    public List<WalletForm> openWalletForms() {
-        return AppServices.get().getOpenWalletForms();
-    }
+    private final Set<Wallet> syncing = ConcurrentHashMap.newKeySet();
+    private final Map<Wallet, Instant> synced = new ConcurrentHashMap<>();
+    private final AtomicBoolean scheduled = new AtomicBoolean();
+    private volatile PwcView view = PwcView.EMPTY;
 
     private static Wallet master(Wallet wallet) {
         return wallet.isMasterWallet() ? wallet : wallet.getMasterWallet();
@@ -70,89 +50,72 @@ public class AppPwcHost implements PwcHost {
         }
     }
 
-    @Override
-    public boolean isSyncing(Wallet masterWallet) {
-        return syncing.contains(masterWallet);
+    /** Any event may change what PWC reports; bursts of events are coalesced into one capture. */
+    @Subscribe
+    public void anyEvent(Object event) {
+        publishSoon();
+    }
+
+    public void publishSoon() {
+        if(scheduled.compareAndSet(false, true)) {
+            Platform.runLater(() -> {
+                scheduled.set(false);
+                publish();
+            });
+        }
+    }
+
+    /** Called on the JavaFX thread. */
+    void publish() {
+        Config config = Config.get();
+        view = PwcView.capture(openWalletForms(), syncing::contains, synced::get, connected(), AppServices.getCurrentBlockHeight(),
+                AppServices.getTargetBlockFeeRates(), AppServices.getMinimumRelayFeeRate(), config.isIncludeMempoolOutputs(), config.isGroupByAddress());
     }
 
     @Override
-    public Instant syncedAt(Wallet masterWallet) {
-        return synced.get(masterWallet);
+    public PwcView view() {
+        return view;
     }
 
     @Override
-    public Integer currentBlockHeight() {
-        return AppServices.getCurrentBlockHeight();
+    public List<WalletForm> openWalletForms() {
+        return AppServices.get().getOpenWalletForms();
     }
 
-    @Override
-    public boolean isConnected() {
+    /** Called on the JavaFX thread; the connection service may only be read there. */
+    protected boolean connected() {
         return AppServices.isConnected();
     }
 
     @Override
-    public Map<Integer, Double> targetBlockFeeRates() {
-        return AppServices.getTargetBlockFeeRates();
+    public void onWalletThread(Runnable action) {
+        Platform.runLater(action);
     }
 
-    @Override
-    public double minimumRelayFeeRate() {
-        return AppServices.getMinimumRelayFeeRate();
-    }
-
-    private static <T> T waitFor(CompletableFuture<T> future) throws Exception {
-        try {
-            return future.get();
-        } catch(ExecutionException e) {
-            throw e.getCause() instanceof Exception cause ? cause : e;
-        }
-    }
-
-    @Override
-    public PSBT signWithDevice(Wallet wallet, PSBT psbt) {
-        CompletableFuture<PSBT> signed = new CompletableFuture<>();
-        Platform.runLater(() -> {
-            try {
-                List<String> fingerprints = wallet.getKeystores().stream().map(Keystore::getKeyDerivation).map(derivation -> derivation.getMasterFingerprint()).toList();
-                DeviceSignDialog dialog = new DeviceSignDialog(wallet, fingerprints, psbt);
-                Window owner = AppServices.getActiveWindow();
-                if(owner != null) {
-                    dialog.initOwner(owner);
-                }
-                signed.complete(dialog.showAndWait().orElse(null));
-            } catch(Throwable e) {
-                signed.completeExceptionally(e);
-            }
-        });
-        try {
-            return waitFor(signed);
-        } catch(Exception e) {
-            throw new IllegalStateException("The device signature failed", e);
-        }
-    }
-
-    @Override
-    public boolean acceptReplayRisk(Transaction transaction) {
-        CompletableFuture<Boolean> accepted = new CompletableFuture<>();
-        Platform.runLater(() -> {
-            try {
-                Map<Sha256Hash, BlockTransaction> previous = new HashMap<>();
-                openWalletForms().forEach(form -> previous.putAll(form.getWallet().getWalletTransactions()));
-                List<LegacyUtxoChecker.Utxo> inputs = LegacyUtxoChecker.inputs(transaction, null, null, previous);
-                new LegacyReplayGuard().check(inputs, () -> true, new Button(), () -> {}).whenComplete((continued, error) -> accepted.complete(error == null && continued));
-            } catch(Throwable e) {
-                accepted.complete(false);
-            }
-        });
-        try {
-            return waitFor(accepted);
-        } catch(Exception e) {
-            return false;
-        }
-    }
-
-    @Override
-    public Sha256Hash broadcast(Transaction transaction) throws Exception {
+    protected Sha256Hash send(Transaction transaction) throws Exception {
         return new ElectrumServer().broadcastTransaction(transaction, null);
+    }
+
+    @Override
+    public Sha256Hash broadcast(Transaction transaction) throws PwcException {
+        try {
+            return send(transaction);
+        } catch(Exception e) {
+            log.warn("PWC broadcast failed", e);
+            throw broadcastFailure(e);
+        }
+    }
+
+    /** An error answer from the server, or a txid it reports for another transaction, is a refusal; anything else means the server could not be used. */
+    static PwcException broadcastFailure(Exception failure) {
+        for(Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if(cause instanceof JsonRpcException) {
+                return new PwcException(ErrorCode.TRANSACTION_REJECTED, "The server refused the transaction");
+            }
+        }
+        if(failure instanceof ServerException && failure.getCause() == null) {
+            return new PwcException(ErrorCode.TRANSACTION_REJECTED, "The server refused the transaction");
+        }
+        return new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The server could not be reached");
     }
 }

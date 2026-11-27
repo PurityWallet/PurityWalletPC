@@ -239,6 +239,7 @@ public class AppServices {
         if(Interface.get() == Interface.DESKTOP) {
             AppPwcHost pwcHost = new AppPwcHost();
             EventManager.get().register(pwcHost);
+            pwcHost.publishSoon();
             pwcService = new PwcService(pwcHost, PwcState.getDirectory(), null, PwcService.providerId(Network.get()), PwcPromptHandler::new);
             if(config.isPwcEnabled()) {
                 pwcService.start();

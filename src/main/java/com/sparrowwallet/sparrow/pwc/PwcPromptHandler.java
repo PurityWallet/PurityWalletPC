@@ -1,17 +1,24 @@
 package com.sparrowwallet.sparrow.pwc;
 
 import com.sparrowwallet.drongo.SecureString;
+import com.sparrowwallet.drongo.address.Address;
+import com.sparrowwallet.drongo.protocol.Transaction;
 import com.sparrowwallet.drongo.psbt.PSBT;
+import com.sparrowwallet.drongo.wallet.Keystore;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.sparrow.AppServices;
+import com.sparrowwallet.sparrow.control.DeviceSignDialog;
 import com.sparrowwallet.sparrow.control.LegacyReplayGuard;
 import com.sparrowwallet.sparrow.control.WalletPasswordDialog;
 import com.sparrowwallet.sparrow.io.Storage;
 import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
 import com.sparrowwallet.sparrow.wallet.WalletForm;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.scene.control.Button;
 import javafx.stage.Window;
+import javafx.util.Duration;
 import org.bitcoinpurity.pwc.provider.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,18 +30,52 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
 
 /** Shows each PWC prompt to the user, one at a time, and answers it exactly once. */
 public class PwcPromptHandler implements PromptHandler {
     private static final Logger log = LoggerFactory.getLogger(PwcPromptHandler.class);
 
+    /** Signs with the account's USB device after the user confirms on it, on the JavaFX thread; null if cancelled or withdrawn. */
+    interface DeviceSigner {
+        PSBT sign(Wallet wallet, PSBT psbt, BooleanSupplier withdrawn);
+    }
+
     private final PwcService service;
     private final PwcWalletBackend backend;
+    private final DeviceSigner device;
     private final LegacyReplayGuard replayGuard = new LegacyReplayGuard();
 
     public PwcPromptHandler(PwcService service, PwcWalletBackend backend) {
+        this(service, backend, PwcPromptHandler::signWithDeviceDialog);
+    }
+
+    PwcPromptHandler(PwcService service, PwcWalletBackend backend, DeviceSigner device) {
         this.service = service;
         this.backend = backend;
+        this.device = device;
+    }
+
+    /** The existing device dialog, closed when the Provider withdraws the request. */
+    private static PSBT signWithDeviceDialog(Wallet wallet, PSBT psbt, BooleanSupplier withdrawn) {
+        List<String> fingerprints = wallet.getKeystores().stream().map(Keystore::getKeyDerivation).map(derivation -> derivation.getMasterFingerprint()).toList();
+        DeviceSignDialog dialog = new DeviceSignDialog(wallet, fingerprints, psbt);
+        Window owner = AppServices.getActiveWindow();
+        if(owner != null) {
+            dialog.initOwner(owner);
+        }
+        Timeline withdrawalCheck = new Timeline(new KeyFrame(Duration.millis(500), event -> {
+            if(withdrawn.getAsBoolean()) {
+                dialog.close();
+            }
+        }));
+        withdrawalCheck.setCycleCount(Timeline.INDEFINITE);
+        withdrawalCheck.play();
+        try {
+            return dialog.showAndWait().orElse(null);
+        } finally {
+            withdrawalCheck.stop();
+        }
     }
 
     /** Called on the SDK thread {@code pwc-prompts}; returns once the prompt is answered or withdrawn. */
@@ -113,7 +154,9 @@ public class PwcPromptHandler implements PromptHandler {
             }
             case MessageSignPrompt message -> {
                 PwcMessageDialog dialog = new PwcMessageDialog(message.request(), accountName(message.request().accountId()), message::isWithdrawn);
-                decide(dialog, message, () -> unlockThenApprove(message, message.request().accountId(), message::approve, done), done);
+                MessageSignRequest request = message.request();
+                String subject = PwcWalletBackend.messageSubject(normalized(request.address()), request.message(), request.format());
+                decide(dialog, message, () -> unlockThenApprove(message, request.accountId(), subject, message::approve, done), done);
             }
         }
     }
@@ -134,7 +177,18 @@ public class PwcPromptHandler implements PromptHandler {
         }
     }
 
-    /** REQ-011: the legacy-chain check and replay acknowledgement come after the user approves and before the wallet signs. */
+    private static String normalized(String address) {
+        try {
+            return Address.fromString(address).toString();
+        } catch(Exception e) {
+            return address;
+        }
+    }
+
+    /**
+     * REQ-011 and REQ-017: the legacy-chain check and replay acknowledgement come after the user approves and before the wallet signs.
+     * Continuing records a clearance that the later PWC broadcast of this transaction relies on.
+     */
     private void checkReplay(PsbtSignPrompt prompt, CompletableFuture<Void> done) {
         String accountId = prompt.request().accountId();
         WalletForm form = backend.walletForm(accountId);
@@ -144,16 +198,25 @@ public class PwcPromptHandler implements PromptHandler {
             return;
         }
         List<LegacyUtxoChecker.Utxo> inputs;
+        Transaction transaction;
         try {
             PSBT psbt = new PSBT(prompt.request().psbt());
-            inputs = LegacyUtxoChecker.inputs(psbt.getTransaction(), psbt, form.getWallet(), form.getWallet().getWalletTransactions());
+            transaction = psbt.getTransaction();
+            inputs = LegacyUtxoChecker.inputs(transaction, psbt, form.getWallet(), form.getWallet().getWalletTransactions());
         } catch(Exception e) {
             log.warn("Could not read the PWC PSBT for the replay check", e);
             answer(prompt::reject);
             done.complete(null);
             return;
         }
-        replayGuard.check(inputs, () -> !prompt.isWithdrawn(), new Button(), () -> unlockThenApprove(prompt, accountId, prompt::approve, done))
+        Runnable approve = () -> {
+            backend.replayCleared(transaction);
+            prompt.approve();
+        };
+        String subject = PwcWalletBackend.psbtSubject(prompt.request().psbt(), prompt.request().inputsToSign());
+        Runnable sign = backend.signsWithDevice(accountId) ? () -> signOnDeviceThenApprove(prompt, accountId, subject, approve, done)
+                : () -> unlockThenApprove(prompt, accountId, subject, approve, done);
+        replayGuard.check(inputs, () -> !prompt.isWithdrawn(), new Button(), sign)
                 .thenAccept(continued -> {
                     if(!continued) {
                         answer(prompt::reject);
@@ -162,8 +225,41 @@ public class PwcPromptHandler implements PromptHandler {
                 });
     }
 
+    /** The device confirmation is part of the prompt flow, so that {@code signPsbt} never waits for the user (REQ-017). */
+    private void signOnDeviceThenApprove(PsbtSignPrompt prompt, String accountId, String subject, Runnable approve, CompletableFuture<Void> done) {
+        WalletForm form = backend.walletForm(accountId);
+        byte[] requested = prompt.request().psbt();
+        PSBT signed = null;
+        if(form != null) {
+            try {
+                signed = device.sign(form.getWallet(), new PSBT(requested), prompt::isWithdrawn);
+                if(signed != null) {
+                    new PSBT(requested).verifyCombinedSignatures(signed);
+                }
+            } catch(Exception e) {
+                log.warn("The device signature for a PWC request failed", e);
+                signed = null;
+            }
+        }
+        if(prompt.isWithdrawn()) {
+            done.complete(null);
+            return;
+        }
+        if(signed == null) {
+            answer(prompt::reject);
+            done.complete(null);
+            return;
+        }
+        backend.deviceSigned(accountId, subject, signed);
+        answer(approve);
+        if(prompt.isWithdrawn()) {
+            backend.discardApproval(accountId);
+        }
+        done.complete(null);
+    }
+
     /** Unlocking is a separate step after approval (PWC-UX-001 §1.5); the decrypted copy serves only the signature just approved. */
-    private void unlockThenApprove(Prompt prompt, String accountId, Runnable approve, CompletableFuture<Void> done) {
+    private void unlockThenApprove(Prompt prompt, String accountId, String subject, Runnable approve, CompletableFuture<Void> done) {
         WalletForm form = backend.walletForm(accountId);
         if(form == null) {
             answer(prompt::reject);
@@ -191,10 +287,10 @@ public class PwcPromptHandler implements PromptHandler {
         }
         Storage.DecryptWalletService decryptWalletService = new Storage.DecryptWalletService(copy, password.get());
         decryptWalletService.setOnSucceeded(event -> {
-            backend.unlocked(accountId, decryptWalletService.getValue());
+            backend.unlocked(accountId, subject, decryptWalletService.getValue());
             answer(approve);
             if(prompt.isWithdrawn()) {
-                backend.discardUnlocked(accountId);
+                backend.discardApproval(accountId);
             }
             done.complete(null);
         });

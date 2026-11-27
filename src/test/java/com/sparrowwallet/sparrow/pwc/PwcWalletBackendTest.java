@@ -505,7 +505,8 @@ class PwcWalletBackendTest {
         assertTrue(result.getPsbtInputs().get(1).getPartialSignatures().isEmpty());
         assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId, psbt.serialize(), List.of(0))), "a device signature serves one request");
 
-        PSBT other = twoInputPsbt(device);
+        PSBT other = new PSBT(backend.createPsbt(accountId, new CreateRequest(List.of(new TxOut(120_000, foreignScript().getProgram())), 3_000, null, true), Set.of()).psbt());
+        assertFalse(Arrays.equals(psbt.serialize(), other.serialize()));
         backend.deviceSigned(accountId, PwcWalletBackend.psbtSubject(psbt.serialize(), List.of(0)), deviceSign(software, psbt));
         assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId, other.serialize(), List.of(0))), "another PSBT than the one approved");
 
