@@ -5,7 +5,11 @@ import com.sparrowwallet.drongo.KeyPurpose;
 import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.address.Address;
 import com.sparrowwallet.drongo.crypto.Bip322;
+import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.protocol.ScriptType;
+import com.sparrowwallet.drongo.protocol.Sha256Hash;
+import com.sparrowwallet.drongo.protocol.Transaction;
+import com.sparrowwallet.drongo.psbt.PSBT;
 import com.sparrowwallet.drongo.wallet.Keystore;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.sparrow.AppServices;
@@ -35,6 +39,7 @@ import javax.imageio.ImageIO;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -384,6 +389,185 @@ class PwcDesktopTest {
             client.shutdownNow();
             service.stop();
             field.set(AppServices.get(), null);
+        }
+    }
+
+    /** Pairs an application and grants it the scopes on every account, answering both prompts in the wallet. */
+    private static LocalTestClient.Credentials pairAndGrant(PwcService service, ExecutorService client, String name, String code, List<String> scopes) throws Exception {
+        Future<LocalTestClient.Credentials> paired = client.submit(() -> {
+            try(LocalTestClient local = LocalTestClient.connect(service.getEndpoint())) {
+                local.hello();
+                LocalTestClient.Credentials credentials = local.pair(name, code);
+                JsonNode grant = local.await(local.call("session.requestPermissions", Map.of("scopes", scopes, "network", "regtest",
+                        "idempotency_key", UUID.randomUUID().toString())));
+                assertEquals("completed", grant.get("state").asText(), grant.toString());
+                return credentials;
+            }
+        });
+        answerWhenShown(PwcPromptDialog.APPROVE, pane -> assertTrue(allText(pane).contains(name), allText(pane)));
+        answerWhenShown(PwcPromptDialog.APPROVE, pane -> {});
+        return paired.get(30, TimeUnit.SECONDS);
+    }
+
+    private static LocalTestClient session(PwcService service, LocalTestClient.Credentials credentials) throws Exception {
+        LocalTestClient local = LocalTestClient.connect(service.getEndpoint());
+        local.hello();
+        local.authenticate(credentials);
+        return local;
+    }
+
+    @Test
+    @EnabledIf("com.sparrowwallet.sparrow.pwc.PwcPlatform#hasNativeLibrary")
+    void theDeviceSignsInThePromptWhileAnotherApplicationIsAnswered() throws Exception {
+        FakeHost host = new FakeHost();
+        Wallet software = PwcTestWallets.software("Device", ScriptType.P2WPKH);
+        Wallet device = PwcTestWallets.hardware(software);
+        PwcTestWallets.fund(device, 0, 300_000, 900);
+        host.forms.add(new WalletForm(new Storage(new File(dir, "device")), device));
+
+        CountDownLatch deviceAsked = new CountDownLatch(1);
+        CountDownLatch confirmed = new CountDownLatch(1);
+        AtomicBoolean onFxThread = new AtomicBoolean();
+        PwcPromptHandler.DeviceSigner fakeDevice = (wallet, psbt, withdrawn) -> {
+            onFxThread.set(Platform.isFxApplicationThread());
+            deviceAsked.countDown();
+            try {
+                //The user confirms on the device; this fake holds the JavaFX thread meanwhile, which no backend call may need
+                assertTrue(confirmed.await(30, TimeUnit.SECONDS));
+                PSBT signed = new PSBT(psbt.serialize());
+                software.copy().sign(signed);
+                return signed;
+            } catch(Exception e) {
+                throw new IllegalStateException(e);
+            }
+        };
+        Path endpoints = PwcPlatform.isWindows() ? null : dir.toPath().resolve("run");
+        PwcService service = new PwcService(host, new File(dir, "pwc"), endpoints, "pwc-device-" + UUID.randomUUID().toString().substring(0, 8),
+                (s, b) -> new PwcPromptHandler(s, b, fakeDevice));
+        service.start();
+        ExecutorService clients = Executors.newFixedThreadPool(2);
+        try {
+            assertEquals(PwcService.Status.RUNNING, service.getStatus(), service.getMessage());
+            String accountId = service.getBackend().getIds().accountId(device);
+            LocalTestClient.Credentials trader = pairAndGrant(service, clients, "Trader", "111111", List.of("wallets:read", "psbt:sign", "transactions:broadcast"));
+            LocalTestClient.Credentials watcher = pairAndGrant(service, clients, "Watcher", "222222", List.of("wallets:read", "balances:read"));
+
+            byte[] foreign = PwcTestWallets.software("Other", ScriptType.P2WPKH, PwcTestWallets.OTHER_SEED).getFreshNode(KeyPurpose.RECEIVE).getOutputScript().getProgram();
+            CreatedPsbt created = service.getBackend().createPsbt(accountId, new CreateRequest(List.of(new TxOut(100_000, foreign)), 2_000, null, true), Set.of());
+            Future<JsonNode> signing = clients.submit(() -> {
+                try(LocalTestClient local = session(service, trader)) {
+                    return local.await(local.call("psbt.sign", Map.of("account_id", accountId, "psbt", Base64.getEncoder().encodeToString(created.psbt()),
+                            "idempotency_key", UUID.randomUUID().toString())));
+                }
+            });
+            answerWhenShown(PwcPromptDialog.APPROVE, pane -> assertTrue(allText(pane).contains("100 000") || allText(pane).contains("100,000"), allText(pane)));
+            assertTrue(deviceAsked.await(30, TimeUnit.SECONDS), "the device is asked after the approval");
+            assertTrue(onFxThread.get(), "in the prompt flow");
+            assertFalse(signing.isDone(), "the prompt is answered only once the device has signed");
+
+            try(LocalTestClient local = session(service, watcher)) {
+                long start = System.nanoTime();
+                JsonNode balance = local.call("account.getBalance", Map.of("account_id", accountId));
+                Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
+                assertTrue(elapsed.compareTo(Duration.ofSeconds(2)) < 0, "a second application waited " + elapsed + " during the device confirmation");
+                assertEquals("300000", balance.get("confirmed_sats").asText(), balance.toString());
+            }
+            confirmed.countDown();
+
+            JsonNode signed = signing.get(60, TimeUnit.SECONDS);
+            assertEquals("completed", signed.get("state").asText(), signed.toString());
+            assertEquals(0, signed.get("result").get("signed_input_indexes").get(0).asInt());
+            PSBT psbt = new PSBT(Base64.getDecoder().decode(signed.get("result").get("psbt").asText()));
+            device.finalise(psbt);
+            Transaction transaction = psbt.extractTransaction();
+
+            try(LocalTestClient local = session(service, trader)) {
+                JsonNode broadcast = local.await(local.call("transaction.broadcast", Map.of("account_id", accountId,
+                        "raw_transaction", Utils.bytesToHex(transaction.bitcoinSerialize()), "idempotency_key", UUID.randomUUID().toString())));
+                assertEquals("completed", broadcast.get("state").asText(), broadcast.toString());
+                assertEquals(transaction.getTxId().toString(), broadcast.get("result").get("txid").asText());
+            }
+            assertEquals(List.of(transaction.getTxId()), host.broadcasts.stream().map(Transaction::getTxId).toList());
+        } finally {
+            confirmed.countDown();
+            clients.shutdownNow();
+            service.stop();
+        }
+    }
+
+    /** The application host whose connection state, like {@code AppServices.isConnected()}, may only be read on the JavaFX thread. */
+    private static final class FxOnlyHost extends AppPwcHost {
+        private final List<WalletForm> forms;
+        final List<Transaction> sent = new CopyOnWriteArrayList<>();
+
+        FxOnlyHost(List<WalletForm> forms) {
+            this.forms = forms;
+        }
+
+        @Override
+        public List<WalletForm> openWalletForms() {
+            return forms;
+        }
+
+        @Override
+        protected boolean connected() {
+            if(!Platform.isFxApplicationThread()) {
+                throw new IllegalStateException("Service must only be used from the FX Application Thread");
+            }
+            return true;
+        }
+
+        @Override
+        protected Sha256Hash send(Transaction transaction) {
+            sent.add(transaction);
+            return transaction.getTxId();
+        }
+    }
+
+    @Test
+    void theBackendAnswersOffTheBlockedJavaFxThreadAndBroadcastsWhileConnected() throws Exception {
+        Wallet wallet = PwcTestWallets.software("Blocked", ScriptType.P2WPKH);
+        PwcTestWallets.fund(wallet, 0, 200_000, 900);
+        PwcTestWallets.fund(wallet, 1, 100_000, 900);
+        FxOnlyHost host = new FxOnlyHost(List.of(new WalletForm(new Storage(new File(dir, "blocked")), wallet)));
+        onFx(() -> {
+            host.publish();
+            return null;
+        });
+        PwcWalletBackend backend = new PwcWalletBackend(host, PwcIds.load(new File(dir, "pwc")));
+        String accountId = backend.getIds().accountId(wallet);
+        byte[] foreign = PwcTestWallets.software("Other", ScriptType.P2WPKH, PwcTestWallets.OTHER_SEED).getFreshNode(KeyPurpose.RECEIVE).getOutputScript().getProgram();
+
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch blocked = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            blocked.countDown();
+            try {
+                release.await(30, TimeUnit.SECONDS);
+            } catch(InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        ExecutorService caller = Executors.newSingleThreadExecutor();
+        try {
+            assertTrue(blocked.await(10, TimeUnit.SECONDS));
+            Future<String> answered = caller.submit(() -> {
+                assertEquals(300_000, backend.balance(accountId, Set.of()).components().confirmedSats());
+                assertEquals(SyncState.SYNCED, backend.balance(accountId, Set.of()).sync().state());
+                assertEquals(2, backend.utxos(accountId, Set.of()).size());
+                assertNotNull(backend.createAddress(accountId, "Blocked"));
+                CreatedPsbt created = backend.createPsbt(accountId, new CreateRequest(List.of(new TxOut(150_000, foreign)), 2_000, null, true), Set.of());
+                SignedPsbt signed = backend.signPsbt(accountId, created.psbt(), List.of(0));
+                assertEquals(List.of(0), signed.signedInputs());
+                PSBT psbt = new PSBT(signed.psbt());
+                wallet.copy().finalise(psbt);
+                return backend.broadcast("regtest", psbt.extractTransaction().bitcoinSerialize());
+            });
+            String txid = answered.get(2, TimeUnit.SECONDS);
+            assertEquals(List.of(txid), host.sent.stream().map(t -> t.getTxId().toString()).toList(), "the broadcast reached the server");
+        } finally {
+            release.countDown();
+            caller.shutdownNow();
         }
     }
 }
