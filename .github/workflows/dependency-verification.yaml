@@ -29,6 +29,9 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/update-gradle-verification
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
         with:
           cache-gradle-wrapper-distribution: ${{ env.CACHE_GRADLE_WRAPPER_DISTRIBUTION }}
           clean-start: ${{ env.CLEAN_STALE_VERIFICATION_METADATA }}
@@ -45,6 +48,9 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/update-gradle-verification
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
         with:
           cache-gradle-wrapper-distribution: ${{ env.CACHE_GRADLE_WRAPPER_DISTRIBUTION }}
           previous-artifact: gradle-verification-linux-x64
@@ -61,6 +67,9 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/update-gradle-verification
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
         with:
           cache-gradle-wrapper-distribution: ${{ env.CACHE_GRADLE_WRAPPER_DISTRIBUTION }}
           previous-artifact: gradle-verification-linux-arm64
@@ -77,6 +86,9 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/update-gradle-verification
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
         with:
           cache-gradle-wrapper-distribution: ${{ env.CACHE_GRADLE_WRAPPER_DISTRIBUTION }}
           previous-artifact: gradle-verification-windows-x64
@@ -93,6 +105,9 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/update-gradle-verification
+        env:
+          PWC_PACKAGES_USER: ${{ github.actor }}
+          PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
         with:
           cache-gradle-wrapper-distribution: ${{ env.CACHE_GRADLE_WRAPPER_DISTRIBUTION }}
           previous-artifact: gradle-verification-macos-x64

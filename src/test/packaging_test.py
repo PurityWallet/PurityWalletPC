@@ -6,7 +6,19 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
+PWC_TOKEN = "PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}"
+PWC_USER = "PWC_PACKAGES_USER: ${{ github.actor }}"
+
 class PackagingTest(unittest.TestCase):
+    def assert_only_pwc_packages_secret(self, workflow):
+        """The read-only GitHub Packages token for the PWC SDK is the only secret a workflow may use (REQ-014)."""
+        self.assertIn(PWC_TOKEN, workflow)
+        self.assertIn(PWC_USER, workflow)
+        self.assertNotIn("secrets.", workflow.replace("secrets.PWC_PACKAGES_TOKEN", ""))
+        for line in workflow.splitlines():
+            if "PWC_PACKAGES_TOKEN:" in line:
+                self.assertEqual(10, len(line) - len(line.lstrip(" ")), "the token is passed to individual steps only: " + line)
+
     def test_release_version(self):
         build = (ROOT / "build.gradle").read_text()
         self.assertIn("version = '1.1.1'", build)
@@ -25,42 +37,121 @@ class PackagingTest(unittest.TestCase):
         self.assertIn('imageName = "puritywallet"', build)
         self.assertNotIn("Craig Raw (UPLVMSK9D7)", build)
 
-    def test_windows_installer_workflow(self):
-        workflow = (ROOT / ".github/workflows/windows-package.yaml").read_text()
-        self.assertIn("runs-on: windows-2022", workflow)
-        self.assertIn("java-version: '25.0.2'", workflow)
-        self.assertIn("./gradlew :test :jpackage", workflow)
-        self.assertIn("puritywallet-${env:RELEASE_VERSION}-windows-x64.msi", workflow)
-        self.assertIn("msiexec.exe", workflow)
-        self.assertIn("--version", workflow)
-        self.assertIn("actions/upload-artifact@", workflow)
+    def test_ci_is_one_workflow_with_three_jobs(self):
+        """REQ-015: one workflow, so a CI service that runs one workflow per build covers every check."""
+        for name in ["test.yaml", "windows-package.yaml", "macos-package.yaml"]:
+            self.assertFalse((ROOT / ".github/workflows" / name).exists(), name)
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("name: CI", workflow)
+        self.assertRegex(workflow, r"(?m)^  tests:\n    runs-on: ubuntu-22.04$")
+        self.assertRegex(workflow, r"(?m)^  windows-installer:\n    runs-on: windows-2022$")
+        self.assertRegex(workflow, r"(?m)^  macos-dmg:\n    runs-on: macos-15$")
+        self.assertNotIn("macos-15-intel", workflow)
         self.assertNotIn("matrix:", workflow)
 
-    def test_windows_validation_runs_for_pr_updates(self):
-        workflow = (ROOT / ".github/workflows/windows-package.yaml").read_text()
+    def test_ci_requests_no_github_token(self):
+        """REQ-015: self-hosted Buildkite agents receive no workflow token, so no step may read one (the repository is public)."""
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertNotIn("github.token", workflow)
+        self.assertNotIn("GITHUB_TOKEN", workflow)
+        # setup-java's token input defaults to github.token
+        self.assertEqual(workflow.count("uses: actions/setup-java@"), workflow.count("          token: ''\n"))
+
+    def test_ci_runs_for_pr_updates_master_pushes_and_dispatch(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertRegex(workflow, r"(?m)^  pull_request:\n    branches: \[master\]$")
         self.assertRegex(workflow, r"(?m)^  push:\n    branches:\n      - master$")
         self.assertIn("  workflow_dispatch:", workflow)
         self.assertIn("  contents: read", workflow)
         self.assertNotIn("pull_request_target", workflow)
-        self.assertNotIn("secrets.", workflow)
+        self.assert_only_pwc_packages_secret(workflow)
 
-    def test_pr_tests_include_desktop_and_isolated_data(self):
-        workflow = (ROOT / ".github/workflows/test.yaml").read_text()
-        self.assertRegex(workflow, r"(?m)^  pull_request:\n    branches: \[master\]$")
-        self.assertRegex(workflow, r"(?m)^  push:\n    branches: \[master\]$")
-        self.assertIn("  workflow_dispatch:", workflow)
+    def test_ci_tests_include_desktop_and_isolated_data(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertIn("submodules: recursive", workflow)
         self.assertIn("java-version: '25.0.2'", workflow)
         self.assertIn("python3 src/test/packaging_test.py", workflow)
         self.assertIn("xvfb-run --auto-servernum ./gradlew :test :desktopTest", workflow)
+        # Ubuntu 24.04 self-hosted agents name the GTK and ALSA runtimes with a t64 suffix
+        self.assertIn("libgtk-3-0t64 libasound2t64", workflow)
+        self.assertIn("libgtk-3-0 libasound2", workflow)
         self.assertIn("build/test-results/**", workflow)
-        self.assertIn("  contents: read", workflow)
-        self.assertNotIn("pull_request_target", workflow)
-        self.assertNotIn("secrets.", workflow)
         build = (ROOT / "build.gradle").read_text()
         self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('test-home')", build)
         self.assertIn("systemProperty 'puritywallet.home', layout.buildDirectory.dir('desktop-test-home')", build)
+
+    def test_ci_builds_and_installs_the_windows_msi(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("./gradlew :test :jacocoTestReport :jpackage", workflow)
+        # Buildkite's GitHub Actions runtime does not pass the agent's WIX variable to steps
+        self.assertIn("[Environment]::GetEnvironmentVariable('WIX', 'Machine')", workflow)
+        self.assertIn("puritywallet-${env:RELEASE_VERSION}-windows-x64.msi", workflow)
+        self.assertIn("msiexec.exe", workflow)
+        self.assertIn("--version", workflow)
+        self.assertIn("actions/upload-artifact@", workflow)
+
+    def test_ci_builds_the_apple_silicon_dmg_only(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("puritywallet-${RELEASE_VERSION}-macos-arm64.dmg", workflow)
+        self.assertIn('test "$(lipo -archs "$app/Contents/MacOS/puritywallet")" = arm64', workflow)
+        self.assertIn("codesign --verify --deep --strict", workflow)
+
+    def test_every_dependency_workflow_can_download_the_pwc_sdk(self):
+        for name in ["package.yaml", "dependency-verification.yaml"]:
+            self.assert_only_pwc_packages_secret((ROOT / ".github/workflows" / name).read_text())
+
+    def test_pwc_sdk_dependency_and_native_library_packaging(self):
+        build = (ROOT / "build.gradle").read_text()
+        self.assertIn("url = uri('https://maven.pkg.github.com/BitcoinPurity/pwc-spec')", build)
+        self.assertIn("includeGroup 'org.bitcoinpurity.pwc'", build)
+        self.assertIn("System.getenv('PWC_PACKAGES_TOKEN')", build)
+        self.assertIn("implementation('org.bitcoinpurity.pwc:pwc-provider-java:0.2.1')", build)
+        self.assertEqual(2, build.count('"--enable-native-access=org.bitcoinpurity.pwc.provider"'))
+        self.assertIn("glob:/org.bitcoinpurity.pwc.provider/org/bitcoinpurity/pwc/provider/native/**", build)
+        self.assertIn("'pwc-provider-java-'   : \"org/bitcoinpurity/pwc/provider/native/${pwcPlatform}/*\"", build)
+        self.assertIn("-Djava.library.path=$ROOTDIR\\\\runtime\\\\lib", build)
+        self.assertIn("requires org.bitcoinpurity.pwc.provider;", (ROOT / "src/main/java/module-info.java").read_text())
+        verification = (ROOT / "gradle/verification-metadata.xml").read_text()
+        self.assertIn('<component group="org.bitcoinpurity.pwc" name="pwc-provider-java" version="0.2.1">', verification)
+        self.assertIn("PWC-Provider-SDK-MIT.txt", (ROOT / "NOTICE").read_text())
+        self.assertIn("MIT License", (ROOT / "THIRD-PARTY-LICENSES/PWC-Provider-SDK-MIT.txt").read_text())
+
+    def test_packaged_apps_load_the_pwc_library_from_the_runtime(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("runtime\\lib\\pwc_provider_jni.dll", workflow)
+        # On Windows the SDK 0.2.0 demo listens on the named pipe and never exits, so the check must not wait for it
+        self.assertNotIn("cannot determine the endpoint directory", workflow)
+        self.assertNotIn("pwccheck.exe') -Wait", workflow)
+        self.assertIn("Stop-Process -Id $pwccheck.Id", workflow)
+        # Self-hosted agents keep installed products between runs, so the test install must always be removed
+        uninstall = workflow.index("name: Uninstall the test installation")
+        self.assertIn("if: always()", workflow[uninstall:uninstall + 120])
+        self.assertIn('msiexec.exe -ArgumentList "/x', workflow[uninstall:])
+        self.assertIn("libpwc_provider_jni.dylib", workflow)
+        self.assertIn("pwc-provider listening on", workflow)
+        # macOS limits socket paths to 104 bytes, which runner temporary directories can exceed
+        self.assertIn('pwc_dir="$(mktemp -d /tmp/pwc.XXXXXX)"', workflow)
+
+    def test_ci_reports_regression_test_coverage_in_every_job(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("./gradlew :test :desktopTest :jacocoTestReport", workflow)
+        self.assertEqual(2, workflow.count("./gradlew :test :jacocoTestReport :jpackage"))
+        for name in ("linux", "windows", "macos-arm64"):
+            artifact = workflow.index(f"name: PurityWallet-{name}-coverage")
+            self.assertIn("build/reports/jacoco/test/", workflow[artifact:artifact + 200])
+        build = (ROOT / "build.gradle").read_text()
+        self.assertIn("id 'jacoco'", build)
+        self.assertIn("xml.required = true", build)
+        self.assertIn("html.required = true", build)
+        # Coverage is reported only, and only for the :test suite
+        self.assertNotIn("jacocoTestCoverageVerification", build)
+        self.assertEqual(2, build.count("jacoco.enabled = false"))
+        # JavaFX and terminal interface packages and hardware card drivers are left out of the report
+        for package in ("control", "glyphfont", "keystoreimport", "settings", "terminal", "transaction", "io/ckcard", "io/keycard", "io/satochip"):
+            self.assertIn(f"'com/sparrowwallet/sparrow/{package}/**'", build)
+        verification = (ROOT / "gradle/verification-metadata.xml").read_text()
+        self.assertIn('id="A413F67D71BEEC23ADD0CE0ACB43338E060CF9FA" group="org.jacoco"', verification)
+        self.assertIn("pub    CB43338E060CF9FA", (ROOT / "gradle/verification-keyring.keys").read_text())
 
     def test_macos_identity(self):
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as f:
