@@ -119,3 +119,15 @@ Prompts follow PWC-UX-001: pairing shows the peer process and the six-digit code
 | `macos-dmg` | `macos-15` | Regression tests, Apple Silicon app and DMG, mounted-image checks, ad hoc signature and PWC native library |
 
 Triggers, permissions, the `PWC_PACKAGES_TOKEN` step-level secret and artifact names are unchanged. No step reads a GitHub workflow token, so the jobs run on self-hosted Buildkite agents, which receive none; `actions/setup-java` is given an empty `token` because its default reads `github.token`. CI no longer builds an Intel DMG; the manual Package workflow still can.
+
+## REQ-016: Test coverage reports in CI — adopted
+
+Every job of `ci.yaml` runs `:jacocoTestReport` after `:test`. The report covers the main source set under the `:test` suite only; `desktopTest` and `verifyCheckpoint` run without the JaCoCo agent. Each job prints the line and branch coverage in its log and uploads the HTML and XML report as an artifact:
+
+| Job | Artifact |
+|---|---|
+| `tests` | `PurityWallet-linux-coverage` |
+| `windows-installer` | `PurityWallet-windows-coverage` |
+| `macos-dmg` | `PurityWallet-macos-arm64-coverage` |
+
+Coverage never fails a build and is not uploaded to an external service.

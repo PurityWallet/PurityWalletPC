@@ -82,7 +82,7 @@ class PackagingTest(unittest.TestCase):
 
     def test_ci_builds_and_installs_the_windows_msi(self):
         workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
-        self.assertIn("./gradlew :test :jpackage", workflow)
+        self.assertIn("./gradlew :test :jacocoTestReport :jpackage", workflow)
         # Buildkite's GitHub Actions runtime does not pass the agent's WIX variable to steps
         self.assertIn("[Environment]::GetEnvironmentVariable('WIX', 'Machine')", workflow)
         self.assertIn("puritywallet-${env:RELEASE_VERSION}-windows-x64.msi", workflow)
@@ -131,6 +131,24 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("pwc-provider listening on", workflow)
         # macOS limits socket paths to 104 bytes, which runner temporary directories can exceed
         self.assertIn('pwc_dir="$(mktemp -d /tmp/pwc.XXXXXX)"', workflow)
+
+    def test_ci_reports_regression_test_coverage_in_every_job(self):
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertIn("./gradlew :test :desktopTest :jacocoTestReport", workflow)
+        self.assertEqual(2, workflow.count("./gradlew :test :jacocoTestReport :jpackage"))
+        for name in ("linux", "windows", "macos-arm64"):
+            artifact = workflow.index(f"name: PurityWallet-{name}-coverage")
+            self.assertIn("build/reports/jacoco/test/", workflow[artifact:artifact + 200])
+        build = (ROOT / "build.gradle").read_text()
+        self.assertIn("id 'jacoco'", build)
+        self.assertIn("xml.required = true", build)
+        self.assertIn("html.required = true", build)
+        # Coverage is reported only, and only for the :test suite
+        self.assertNotIn("jacocoTestCoverageVerification", build)
+        self.assertEqual(2, build.count("jacoco.enabled = false"))
+        verification = (ROOT / "gradle/verification-metadata.xml").read_text()
+        self.assertIn('id="A413F67D71BEEC23ADD0CE0ACB43338E060CF9FA" group="org.jacoco"', verification)
+        self.assertIn("pub    CB43338E060CF9FA", (ROOT / "gradle/verification-keyring.keys").read_text())
 
     def test_macos_identity(self):
         with (ROOT / "src/main/deploy/package/macos/Info.plist").open("rb") as f:

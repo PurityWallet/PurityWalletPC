@@ -1,6 +1,7 @@
 // Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE.
 plugins {
     id 'application'
+    id 'jacoco'
     id 'org.openjfx.javafxplugin' version '0.1.0'
     id 'org.beryx.jlink' version '4.0.2'
     id 'org.gradlex.extra-java-module-info' version '1.13.1'
@@ -147,6 +148,28 @@ test {
     systemProperty 'puritywallet.home', layout.buildDirectory.dir('test-home').get().asFile.absolutePath
 }
 
+jacoco {
+    toolVersion = '0.8.16'
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    doLast {
+        def parser = new groovy.xml.XmlSlurper(false, false, true)
+        parser.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
+        def report = parser.parse(reports.xml.outputLocation.get().asFile)
+        ['LINE', 'BRANCH'].each { type ->
+            def counter = report.counter.find { it.@type == type }
+            def covered = counter.@covered.toLong()
+            def total = covered + counter.@missed.toLong()
+            logger.lifecycle(String.format(Locale.ROOT, '%s coverage: %.1f%% (%d of %d)', type.toLowerCase(Locale.ROOT), covered * 100.0 / total, covered, total))
+        }
+    }
+}
+
 tasks.register('desktopTest', Test) {
     description = 'Runs Purity desktop rendering and donation interaction checks in an isolated JVM'
     group = 'verification'
@@ -158,6 +181,7 @@ tasks.register('desktopTest', Test) {
     useJUnitPlatform()
     jvmArgs = ["--enable-native-access=ALL-UNNAMED"]
     systemProperty 'purity.ui.tests', 'true'
+    jacoco.enabled = false
     systemProperty 'puritywallet.home', layout.buildDirectory.dir('desktop-test-home').get().asFile.absolutePath
 }
 
@@ -169,6 +193,7 @@ tasks.register('verifyCheckpoint', Test) {
     useJUnitPlatform {
         includeTags 'checkpoint'
     }
+    jacoco.enabled = false
     jvmArgs = ["--enable-native-access=ALL-UNNAMED"]
     outputs.upToDateWhen { false }
     testLogging {

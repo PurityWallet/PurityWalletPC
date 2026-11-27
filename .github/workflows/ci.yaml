@@ -44,7 +44,7 @@ jobs:
       - name: Check packaging and CI configuration
         run: python3 src/test/packaging_test.py
       - name: Run regression and desktop tests
-        run: xvfb-run --auto-servernum ./gradlew :test :desktopTest --console=plain
+        run: xvfb-run --auto-servernum ./gradlew :test :desktopTest :jacocoTestReport --console=plain
         env:
           PWC_PACKAGES_USER: ${{ github.actor }}
           PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
@@ -57,6 +57,13 @@ jobs:
             build/reports/tests/**
             build/test-results/**
             build/qa/**
+          if-no-files-found: ignore
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-linux-coverage
+          path: build/reports/jacoco/test/
           if-no-files-found: ignore
 
   windows-installer:
@@ -92,7 +99,7 @@ jobs:
           "RELEASE_VERSION=$releaseVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           python src/test/packaging_test.py
       - name: Test and build Windows MSI
-        run: ./gradlew :test :jpackage --console=plain
+        run: ./gradlew :test :jacocoTestReport :jpackage --console=plain
         env:
           PWC_PACKAGES_USER: ${{ github.actor }}
           PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
@@ -188,6 +195,13 @@ jobs:
             build/reports/tests/**
             build/test-results/**
           if-no-files-found: ignore
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-windows-coverage
+          path: build/reports/jacoco/test/
+          if-no-files-found: ignore
 
   macos-dmg:
     runs-on: macos-15
@@ -213,7 +227,7 @@ jobs:
           echo "RELEASE_VERSION=$release_version" >> "$GITHUB_ENV"
           python3 src/test/packaging_test.py
       - name: Test and build macOS app
-        run: ./gradlew :test :jpackage --console=plain
+        run: ./gradlew :test :jacocoTestReport :jpackage --console=plain
         env:
           PWC_PACKAGES_USER: ${{ github.actor }}
           PWC_PACKAGES_TOKEN: ${{ secrets.PWC_PACKAGES_TOKEN }}
@@ -275,4 +289,11 @@ jobs:
           path: |
             build/reports/tests/**
             build/test-results/**
+          if-no-files-found: ignore
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PurityWallet-macos-arm64-coverage
+          path: build/reports/jacoco/test/
           if-no-files-found: ignore
