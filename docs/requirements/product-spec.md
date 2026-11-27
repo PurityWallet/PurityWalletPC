@@ -118,4 +118,4 @@ Prompts follow PWC-UX-001: pairing shows the peer process and the six-digit code
 | `windows-installer` | `windows-2022` | Regression tests, MSI build, silent installation, installed version and PWC native library |
 | `macos-dmg` | `macos-15` | Regression tests, Apple Silicon app and DMG, mounted-image checks, ad hoc signature and PWC native library |
 
-Triggers, permissions, the `PWC_PACKAGES_TOKEN` step-level secret and artifact names are unchanged. CI no longer builds an Intel DMG; the manual Package workflow still can.
+Triggers, permissions, the `PWC_PACKAGES_TOKEN` step-level secret and artifact names are unchanged. No step reads a GitHub workflow token, so the jobs run on self-hosted Buildkite agents, which receive none; `actions/setup-java` is given an empty `token` because its default reads `github.token`. CI no longer builds an Intel DMG; the manual Package workflow still can.

@@ -49,6 +49,14 @@ class PackagingTest(unittest.TestCase):
         self.assertNotIn("macos-15-intel", workflow)
         self.assertNotIn("matrix:", workflow)
 
+    def test_ci_requests_no_github_token(self):
+        """REQ-015: self-hosted Buildkite agents receive no workflow token, so no step may read one (the repository is public)."""
+        workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
+        self.assertNotIn("github.token", workflow)
+        self.assertNotIn("GITHUB_TOKEN", workflow)
+        # setup-java's token input defaults to github.token
+        self.assertEqual(workflow.count("uses: actions/setup-java@"), workflow.count("          token: ''\n"))
+
     def test_ci_runs_for_pr_updates_master_pushes_and_dispatch(self):
         workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertRegex(workflow, r"(?m)^  pull_request:\n    branches: \[master\]$")

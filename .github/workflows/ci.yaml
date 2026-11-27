@@ -34,6 +34,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '25.0.2'
+          token: ''
       - name: Install desktop test runtime
         run: |
           sudo apt-get update
@@ -74,6 +75,7 @@ jobs:
           distribution: temurin
           java-version: '25.0.2'
           architecture: x64
+          token: ''
       - name: Check Windows packaging tools and release metadata
         run: |
           $env:PATH = "$env:WIX\bin;$env:PATH"
@@ -177,6 +179,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '25.0.2'
+          token: ''
       - name: Check packaging and release metadata
         run: |
           release_version=$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)
