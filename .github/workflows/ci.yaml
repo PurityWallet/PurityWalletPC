@@ -149,6 +149,20 @@ jobs:
             Write-Output $text
             throw 'The PWC native library did not load from runtime\lib'
           }
+      - name: Uninstall the test installation
+        if: always()
+        run: |
+          $installer = Get-ChildItem build/windows-release -Filter *.msi -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $installer) { exit 0 }
+          $installDir = Join-Path $env:RUNNER_TEMP 'puritywallet-installed'
+          if (-not (Test-Path (Join-Path $installDir 'puritywallet.exe'))) { exit 0 }
+          $uninstallLog = Join-Path $env:RUNNER_TEMP 'puritywallet-msi-uninstall.log'
+          $result = Start-Process msiexec.exe -ArgumentList "/x `"$($installer.FullName)`" /qn /norestart /L*v `"$uninstallLog`"" -Wait -PassThru
+          if ($result.ExitCode -notin @(0, 3010)) {
+            Get-Content $uninstallLog -Tail 80
+            throw "MSI uninstallation failed: $($result.ExitCode)"
+          }
+          Remove-Item $installDir -Recurse -Force -ErrorAction SilentlyContinue
       - name: Upload Windows installer and SHA-256
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -162,7 +176,7 @@ jobs:
           name: PurityWallet-windows-diagnostics
           path: |
             build/reports/**
-            ${{ runner.temp }}/puritywallet-msi.log
+            ${{ runner.temp }}/puritywallet-msi*.log
             ${{ runner.temp }}/puritywallet-version*.txt
           if-no-files-found: ignore
       - name: Upload Windows test results

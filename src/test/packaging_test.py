@@ -123,6 +123,10 @@ class PackagingTest(unittest.TestCase):
         self.assertNotIn("cannot determine the endpoint directory", workflow)
         self.assertNotIn("pwccheck.exe') -Wait", workflow)
         self.assertIn("Stop-Process -Id $pwccheck.Id", workflow)
+        # Self-hosted agents keep installed products between runs, so the test install must always be removed
+        uninstall = workflow.index("name: Uninstall the test installation")
+        self.assertIn("if: always()", workflow[uninstall:uninstall + 120])
+        self.assertIn('msiexec.exe -ArgumentList "/x', workflow[uninstall:])
         self.assertIn("libpwc_provider_jni.dylib", workflow)
         self.assertIn("pwc-provider listening on", workflow)
         # macOS limits socket paths to 104 bytes, which runner temporary directories can exceed
