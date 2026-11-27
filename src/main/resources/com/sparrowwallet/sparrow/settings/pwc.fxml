@@ -24,7 +24,7 @@
         <Fieldset inputGrow="SOMETIMES" text="Purity Wallet Connect" styleClass="wideLabelFieldSet">
             <Field text="Allow local apps:">
                 <UnlabeledToggleSwitch fx:id="enabled" />
-                <HelpLabel helpText="Lets applications on this computer pair with PurityWallet. Paired applications see only what you grant, and you approve every signature."/>
+                <HelpLabel helpText="Lets applications on this computer pair with PurityWallet. Applications must pair and request access again each time Purity Wallet Connect starts."/>
             </Field>
             <Field text="Status:">
                 <Label fx:id="status" wrapText="true" />

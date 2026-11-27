@@ -147,7 +147,6 @@ public class PwcPromptHandler implements PromptHandler {
         switch(prompt) {
             case PairingPrompt pairing -> decide(new PwcPairingDialog(pairing.request(), pairing::isWithdrawn), pairing, () -> {
                 answer(pairing::approve);
-                service.saveSoon();
                 done.complete(null);
             }, done);
             case PermissionPrompt permission -> {
@@ -155,7 +154,6 @@ public class PwcPromptHandler implements PromptHandler {
                         offeredAccounts(permission.request(), backend.wallets(), backend), permission::isWithdrawn);
                 decide(dialog, permission, () -> {
                     answer(() -> permission.grant(dialog.choice()));
-                    service.saveSoon();
                     done.complete(null);
                 }, done);
             }

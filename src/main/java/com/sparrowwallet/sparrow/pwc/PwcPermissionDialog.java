@@ -88,7 +88,7 @@ class PwcPermissionDialog extends PwcPromptDialog {
         Instant now = Instant.now();
         Instant requested = request.expiresAt();
         DateTimeFormatter format = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault());
-        expiry.getItems().add(new Expiry(requested == null ? "No expiry" : "As requested: " + format.format(requested), requested));
+        expiry.getItems().add(new Expiry(requested == null ? "Until PWC stops" : "As requested: " + format.format(requested), requested));
         for(Map.Entry<String, Duration> option : Map.of("1 hour", Duration.ofHours(1), "1 day", Duration.ofDays(1), "30 days", Duration.ofDays(30)).entrySet()
                 .stream().sorted(Map.Entry.comparingByValue()).toList()) {
             Instant at = now.plus(option.getValue());
@@ -98,6 +98,7 @@ class PwcPermissionDialog extends PwcPromptDialog {
         }
         expiry.getSelectionModel().selectFirst();
         addDetail("Access expires", expiry);
+        note("All access ends when PurityWallet closes or PWC is turned off.");
 
         if(request.scopes().contains("psbt:sign") || request.scopes().contains("psbt:create")) {
             Long requestedLimit = request.constraints() == null ? null : request.constraints().maxAmountSatsPerRequest();

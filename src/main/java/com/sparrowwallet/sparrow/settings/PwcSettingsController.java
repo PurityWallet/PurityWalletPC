@@ -57,7 +57,7 @@ public class PwcSettingsController extends SettingsDetailController {
         grants.setPlaceholder(new Label("No access granted"));
         grants.getColumns().add(column("Allowed", grant -> String.join(", ", grant.scopes())));
         grants.getColumns().add(column("Accounts", this::resources));
-        grants.getColumns().add(column("Expires", grant -> grant.expiresAt() == null ? "Never" : date(grant.expiresAt())));
+        grants.getColumns().add(column("Expires", grant -> grant.expiresAt() == null ? "Until PWC stops" : date(grant.expiresAt())));
         grants.getColumns().add(column("Limit (sat)", grant -> grant.constraints() == null || grant.constraints().maxAmountSatsPerRequest() == null ? "None"
                 : String.format(Locale.ROOT, "%,d", grant.constraints().maxAmountSatsPerRequest())));
         grants.getColumns().add(column("Status", grant -> grant.status().name().toLowerCase(Locale.ROOT)));
@@ -141,9 +141,7 @@ public class PwcSettingsController extends SettingsDetailController {
         PairedClient client = clients.getSelectionModel().getSelectedItem();
         if(client != null && AppServices.showWarningDialog("Unpair application", "Unpair \"" + client.claimedName()
                 + "\"? It loses all access and must pair again to reconnect.", ButtonType.CANCEL, ButtonType.OK).filter(ButtonType.OK::equals).isPresent()) {
-            if(!service().unpairClient(client.clientId())) {
-                AppServices.showErrorDialog("PWC Unpairing", "Could not save the unpairing. Check the PWC status for details.");
-            }
+            service().unpairClient(client.clientId());
             refresh(null);
         }
     }
@@ -152,9 +150,7 @@ public class PwcSettingsController extends SettingsDetailController {
     public void revoke(ActionEvent event) {
         Grant grant = grants.getSelectionModel().getSelectedItem();
         if(grant != null) {
-            if(!service().revokeGrant(grant.grantId())) {
-                AppServices.showErrorDialog("PWC Access", "Could not save the revocation. Check the PWC status for details.");
-            }
+            service().revokeGrant(grant.grantId());
             refresh(null);
         }
     }

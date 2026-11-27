@@ -7,12 +7,15 @@ import com.sparrowwallet.drongo.wallet.Wallet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -79,5 +82,18 @@ class PwcIdsTest {
         assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(pwcDir.toPath())));
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(new File(pwcDir, PwcIds.SALT_FILE).toPath())));
         assertEquals(32, Files.size(new File(pwcDir, PwcIds.SALT_FILE).toPath()));
+    }
+
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    void directoryAndSaltAclAllowOnlyTheOwner() throws Exception {
+        File pwcDir = new File(dir, "pwc");
+        PwcIds.load(pwcDir);
+        for(var path : List.of(pwcDir.toPath(), pwcDir.toPath().resolve(PwcIds.SALT_FILE))) {
+            var acl = Files.getFileAttributeView(path, AclFileAttributeView.class);
+            var owner = acl.getOwner();
+            assertFalse(acl.getAcl().isEmpty());
+            assertTrue(acl.getAcl().stream().allMatch(entry -> entry.principal().equals(owner)));
+        }
     }
 }

@@ -42,4 +42,5 @@ Multisignature, nested SegWit, Taproot and silent-payment accounts are not liste
 - `local.hello` reports the provider id of the endpoint (`puritywallet`, `puritywallet-signet` or `puritywallet-regtest`). `transaction.broadcast` submits the transaction through the configured node and returns the txid in display order.
 - Fee estimates convert the connected node's sat/vB targets to sat/kvB, using the rate of the largest target not above the requested one; no third-party fee source is used.
 - PSBTs created for `psbt.create` are version 0, the only version the SDK signs. On mainnet and Purity signet, signing requires explicit replay-risk acknowledgement if input metadata cannot be verified against the previous transaction.
+- Pairing credentials and grants are valid only for the current run of PWC. After a wallet restart or after PWC is turned off and on, clients must call `local.pair` and request grants again.
 - No PWC endpoint is opened on Intel Macs, in terminal mode, or while the switch is off.

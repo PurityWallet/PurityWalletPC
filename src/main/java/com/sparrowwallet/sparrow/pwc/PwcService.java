@@ -29,14 +29,12 @@ public class PwcService {
     private final Path endpointDirectory;
     private final String providerId;
     private final BiFunction<PwcService, PwcWalletBackend, PromptHandler> prompts;
-    private final PwcState state;
 
-    private PwcState.Session stateSession;
     private PwcWalletBackend backend;
     private Provider provider;
     private LocalServer server;
     private PwcEventForwarder forwarder;
-    private volatile ScheduledExecutorService executor;
+    private ScheduledExecutorService executor;
     private Status status = Status.STOPPED;
     private volatile boolean running;
     private String message;
@@ -48,7 +46,6 @@ public class PwcService {
         this.endpointDirectory = endpointDirectory;
         this.providerId = providerId;
         this.prompts = prompts;
-        this.state = new PwcState(dir);
     }
 
     public static String providerId(Network network) {
@@ -71,47 +68,17 @@ public class PwcService {
         };
     }
 
-    static String describe(StateException.Kind kind, File kept) {
-        String reason = kind == StateException.Kind.UNSUPPORTED_VERSION ? "were saved by a newer version" : "could not be read";
-        return "The saved PWC pairings " + reason + ". They were kept in " + kept + " and PWC started without them.";
-    }
-
     public synchronized void start() {
         if(status == Status.RUNNING || status == Status.UNAVAILABLE) {
             return;
         }
         message = null;
         try {
-            stateSession = state.openSession();
-            boolean interrupted = stateSession.interrupted();
             backend = new PwcWalletBackend(host, PwcIds.load(dir));
             Config config = Config.defaults().toBuilder().providerName(SparrowWallet.APP_NAME).providerVersion(SparrowWallet.APP_VERSION).build();
-            PromptHandler handler = prompts.apply(this, backend);
-            byte[] snapshot = interrupted ? null : state.load();
-            if(interrupted) {
-                message = "PWC stopped unexpectedly. Pair applications again to restore access.";
-                log.warn(message);
-            }
-            if(snapshot == null) {
-                provider = Provider.create(backend, config, handler);
-            } else {
-                try {
-                    provider = Provider.withState(backend, config, handler, snapshot);
-                } catch(StateException e) {
-                    message = describe(e.kind(), state.quarantine());
-                    log.warn(message);
-                    provider = Provider.create(backend, config, handler);
-                }
-            }
-            stateSession.markRunning();
-            try {
-                server = endpointDirectory == null ? LocalServer.start(provider, providerId) : LocalServer.start(provider, endpointDirectory, providerId);
-            } catch(EndpointException | RuntimeException | LinkageError e) {
-                if(!interrupted) {
-                    stateSession.markStopped();
-                }
-                throw e;
-            }
+            provider = Provider.create(backend, config, prompts.apply(this, backend));
+            server = endpointDirectory == null ? LocalServer.start(provider, providerId) : LocalServer.start(provider, endpointDirectory, providerId);
+            PwcState.retireLegacySnapshot(dir);
             executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
                 Thread thread = new Thread(runnable, "pwc-events");
                 thread.setDaemon(true);
@@ -158,19 +125,10 @@ public class PwcService {
         backend.close();
         server.close();
         server = null;
-        boolean saved = save();
 
         // SDK 0.2.1 leaves existing connections open when the listener closes.
         for(PairedClient client : provider.pairedClients()) {
             provider.unpairClient(client.clientId());
-        }
-        if(saved) {
-            try {
-                stateSession.markStopped();
-                message = null;
-            } catch(IOException e) {
-                stateSaveFailed(e);
-            }
         }
         closeResources();
         status = Status.STOPPED;
@@ -199,50 +157,6 @@ public class PwcService {
             provider.close();
             provider = null;
         }
-        if(stateSession != null) {
-            try {
-                stateSession.close();
-            } catch(IOException e) {
-                log.warn("Could not close the PWC state file", e);
-            }
-            stateSession = null;
-        }
-    }
-
-    private void stateSaveFailed(IOException e) {
-        message = "Could not save PWC pairing and permission changes. If PurityWallet closes before saving succeeds, applications must pair again.";
-        log.error("Could not save the PWC pairings", e);
-    }
-
-    public synchronized boolean save() {
-        if(provider == null) {
-            return false;
-        }
-        try {
-            state.save(provider.saveState());
-            return true;
-        } catch(IOException e) {
-            stateSaveFailed(e);
-            return false;
-        }
-    }
-
-    /** Saves shortly after a decision in a prompt, once the Provider has applied it. */
-    void saveSoon() {
-        ScheduledExecutorService current = executor;
-        if(current != null) {
-            try {
-                current.schedule(() -> {
-                    synchronized(this) {
-                        if(executor == current) {
-                            save();
-                        }
-                    }
-                }, 2, TimeUnit.SECONDS);
-            } catch(RejectedExecutionException e) {
-                // The service is stopping.
-            }
-        }
     }
 
     public synchronized List<PairedClient> pairedClients() {
@@ -253,16 +167,16 @@ public class PwcService {
         return provider == null ? List.of() : provider.grants();
     }
 
-    public synchronized boolean revokeGrant(String grantId) {
-        return provider != null && provider.revokeGrant(grantId) && save();
+    public synchronized void revokeGrant(String grantId) {
+        if(provider != null) {
+            provider.revokeGrant(grantId);
+        }
     }
 
-    public synchronized boolean unpairClient(String clientId) {
-        if(provider == null) {
-            return false;
+    public synchronized void unpairClient(String clientId) {
+        if(provider != null) {
+            provider.unpairClient(clientId);
         }
-        provider.unpairClient(clientId);
-        return save();
     }
 
     /** Read without the service lock, by threads that wait on the user. */
