@@ -25,3 +25,4 @@ The released base task numbers 001–004 are retained; the mobile donation and i
 - [TASK-016: Integrate the PWC Java Provider SDK](TASK-016.md)
 - [TASK-017: Run every PR check from one CI workflow](TASK-017.md)
 - [TASK-018: Report test coverage in CI](TASK-018.md)
+- [TASK-019: Keep the PWC backend free of waits](TASK-019.md)

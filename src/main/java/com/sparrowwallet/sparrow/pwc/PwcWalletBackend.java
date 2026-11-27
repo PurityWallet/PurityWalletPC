@@ -9,8 +9,10 @@ import com.sparrowwallet.drongo.policy.PolicyType;
 import com.sparrowwallet.drongo.protocol.*;
 import com.sparrowwallet.drongo.psbt.PSBT;
 import com.sparrowwallet.drongo.psbt.PSBTInput;
+import com.sparrowwallet.drongo.Utils;
 import com.sparrowwallet.drongo.wallet.*;
-import com.sparrowwallet.sparrow.io.Config;
+import com.sparrowwallet.sparrow.net.LegacyUtxoChecker;
+import com.sparrowwallet.sparrow.wallet.Entry;
 import com.sparrowwallet.sparrow.wallet.NodeEntry;
 import com.sparrowwallet.sparrow.wallet.WalletForm;
 import org.bitcoinpurity.pwc.provider.*;
@@ -18,15 +20,26 @@ import org.bitcoinpurity.pwc.provider.ScriptType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
-/** The open wallets of the application, as the PWC Provider sees them. */
+/**
+ * The open wallets of the application, as the PWC Provider sees them. Methods read only the published {@link PwcView}
+ * and never wait for the user or the JavaFX thread (REQ-017).
+ */
 public class PwcWalletBackend implements WalletBackend {
     private static final Logger log = LoggerFactory.getLogger(PwcWalletBackend.class);
 
     static final String DEFAULT_ADDRESS_LABEL = "PWC";
+    /** How long a decrypted wallet or a device signature kept for an approved prompt may wait for its backend call. */
+    public static final Duration APPROVAL_LIFETIME = Duration.ofMinutes(2);
+    /** How long a replay clearance from a signing prompt covers the broadcast of that transaction. */
+    public static final Duration REPLAY_CLEARANCE_LIFETIME = Duration.ofMinutes(30);
+    static final Duration BROADCAST_TIMEOUT = Duration.ofSeconds(30);
 
     private static final List<String> READS = List.of("account.getBalance", "address.getReceiveAddress", "address.create", "address.list",
             "utxo.list", "transaction.list", "transaction.get");
@@ -34,9 +47,9 @@ public class PwcWalletBackend implements WalletBackend {
 
     private enum Signer { SOFTWARE, DEVICE, NONE }
 
-    private record AccountEntry(String accountId, String walletId, WalletForm form, Signer signer) {
+    private record AccountEntry(String accountId, String walletId, PwcView.Form form, Signer signer) {
         Wallet wallet() {
-            return form.getWallet();
+            return form.wallet();
         }
 
         boolean segwit() {
@@ -63,32 +76,114 @@ public class PwcWalletBackend implements WalletBackend {
 
     private record WalletEntry(String walletId, Wallet master, WalletState state, List<AccountEntry> accounts) {}
 
+    private record Entries(PwcView view, List<WalletEntry> wallets) {}
+
+    /** What an approved prompt left for its backend call: a decrypted wallet or a device-signed PSBT, for one subject. */
+    private record Approval(String subject, Instant expires, Wallet decrypted, PSBT deviceSigned) {
+        void clear() {
+            if(decrypted != null) {
+                decrypted.clearPrivate();
+            }
+        }
+    }
+
     private final PwcHost host;
     private final PwcIds ids;
-    private final Map<String, Wallet> unlocked = new ConcurrentHashMap<>();
+    private final Clock clock;
+    private final Duration broadcastTimeout;
+    private final Map<String, Approval> approvals = new ConcurrentHashMap<>();
+    private final Map<String, Instant> replayClearances = new ConcurrentHashMap<>();
+    private final Map<String, Set<Integer>> handedOut = new ConcurrentHashMap<>();
+    private final ExecutorService broadcaster = Executors.newCachedThreadPool(runnable -> {
+        Thread thread = new Thread(runnable, "pwc-broadcast");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private volatile Entries entries;
 
     public PwcWalletBackend(PwcHost host, PwcIds ids) {
+        this(host, ids, Clock.systemUTC(), BROADCAST_TIMEOUT);
+    }
+
+    PwcWalletBackend(PwcHost host, PwcIds ids, Clock clock, Duration broadcastTimeout) {
         this.host = host;
         this.ids = ids;
+        this.clock = clock;
+        this.broadcastTimeout = broadcastTimeout;
     }
 
     public PwcIds getIds() {
         return ids;
     }
 
-    /** Hands over a decrypted copy of an encrypted account for the one signature the user has just approved. */
-    public void unlocked(String accountId, Wallet decrypted) {
-        Wallet previous = unlocked.put(accountId, decrypted);
+    /** The subject of a PSBT approval: the exact PSBT the SDK will pass to {@link #signPsbt} and its inputs to sign. */
+    public static String psbtSubject(byte[] psbt, List<Integer> inputs) {
+        return "psbt:" + Utils.bytesToHex(Sha256Hash.hash(psbt)) + ":" + inputs;
+    }
+
+    public static String messageSubject(String address, String message, MessageFormat format) {
+        return "message:" + format + ":" + address + ":" + Utils.bytesToHex(Sha256Hash.hash(message.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private void keep(String accountId, Approval approval) {
+        Approval previous = approvals.put(accountId, approval);
         if(previous != null) {
-            previous.clearPrivate();
+            previous.clear();
         }
     }
 
-    public void discardUnlocked(String accountId) {
-        Wallet previous = unlocked.remove(accountId);
+    /** Hands over a decrypted copy of an encrypted account for the one signature the user has just approved. */
+    public void unlocked(String accountId, String subject, Wallet decrypted) {
+        keep(accountId, new Approval(subject, clock.instant().plus(APPROVAL_LIFETIME), decrypted, null));
+    }
+
+    /** Hands over the PSBT a device signed in the prompt flow for the one signature the user has just approved. */
+    public void deviceSigned(String accountId, String subject, PSBT signed) {
+        keep(accountId, new Approval(subject, clock.instant().plus(APPROVAL_LIFETIME), null, signed));
+    }
+
+    public void discardApproval(String accountId) {
+        Approval previous = approvals.remove(accountId);
         if(previous != null) {
-            previous.clearPrivate();
+            previous.clear();
         }
+    }
+
+    /** Takes the account's approval once; one for another subject, or expired, is cleared and refused. */
+    private Approval take(String accountId, String subject) throws PwcException {
+        Approval approval = approvals.remove(accountId);
+        if(approval == null) {
+            return null;
+        }
+        if(!approval.subject().equals(subject) || clock.instant().isAfter(approval.expires())) {
+            approval.clear();
+            throw new PwcException(ErrorCode.SIGNER_UNAVAILABLE, "The approval given in the wallet does not cover this request");
+        }
+        return approval;
+    }
+
+    /** The parts of a transaction that its signatures fix: version, lock time, inputs with sequences and outputs. */
+    static String replayKey(Transaction transaction) {
+        StringBuilder key = new StringBuilder().append(transaction.getVersion()).append('/').append(transaction.getLocktime());
+        for(TransactionInput input : transaction.getInputs()) {
+            key.append("/i:").append(input.getOutpoint().getHash()).append(':').append(input.getOutpoint().getIndex()).append(':').append(input.getSequenceNumber());
+        }
+        for(TransactionOutput output : transaction.getOutputs()) {
+            key.append("/o:").append(output.getValue()).append(':').append(Utils.bytesToHex(output.getScriptBytes()));
+        }
+        return key.toString();
+    }
+
+    /** Records that the signing prompt found no shared input or that the user acknowledged the replay risk of this transaction (REQ-011). */
+    public void replayCleared(Transaction transaction) {
+        Instant now = clock.instant();
+        replayClearances.values().removeIf(expires -> now.isAfter(expires));
+        replayClearances.put(replayKey(transaction), now.plus(REPLAY_CLEARANCE_LIFETIME));
+    }
+
+    private boolean isReplayCleared(String key) {
+        Instant expires = replayClearances.get(key);
+        return expires != null && !clock.instant().isAfter(expires);
     }
 
     static String network() {
@@ -112,26 +207,29 @@ public class PwcWalletBackend implements WalletBackend {
         return Signer.NONE;
     }
 
-    /** Called on the wallet thread. */
-    private List<WalletEntry> snapshot() {
-        Map<Wallet, List<WalletForm>> byMaster = new LinkedHashMap<>();
-        for(WalletForm form : host.openWalletForms()) {
-            byMaster.computeIfAbsent(form.getMasterWallet(), master -> new ArrayList<>()).add(form);
+    private static List<WalletEntry> describe(PwcView view, PwcIds ids) {
+        Map<Wallet, List<PwcView.Form>> byMaster = new IdentityHashMap<>();
+        List<Wallet> masters = new ArrayList<>();
+        for(PwcView.Form form : view.forms()) {
+            byMaster.computeIfAbsent(form.master(), master -> {
+                masters.add(master);
+                return new ArrayList<>();
+            }).add(form);
         }
 
         List<WalletEntry> entries = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        for(Map.Entry<Wallet, List<WalletForm>> entry : byMaster.entrySet()) {
-            Wallet master = entry.getKey();
+        for(Wallet master : masters) {
+            List<PwcView.Form> forms = byMaster.get(master);
             String walletId;
             List<AccountEntry> accounts = new ArrayList<>();
             try {
                 walletId = ids.walletId(master);
-                for(WalletForm form : entry.getValue()) {
-                    if(isSupported(form.getWallet())) {
-                        String accountId = ids.accountId(form.getWallet());
+                for(PwcView.Form form : forms) {
+                    if(isSupported(form.wallet())) {
+                        String accountId = ids.accountId(form.wallet());
                         if(seen.add(accountId)) {
-                            accounts.add(new AccountEntry(accountId, walletId, form, signer(form.getWallet())));
+                            accounts.add(new AccountEntry(accountId, walletId, form, signer(form.wallet())));
                         }
                     }
                 }
@@ -142,64 +240,92 @@ public class PwcWalletBackend implements WalletBackend {
             if(accounts.isEmpty()) {
                 continue;
             }
-            boolean locked = entry.getValue().stream().anyMatch(WalletForm::isLocked);
-            WalletState state = locked ? WalletState.LOCKED : (host.isSyncing(master) ? WalletState.SYNCING : WalletState.READY);
+            boolean locked = forms.stream().anyMatch(PwcView.Form::locked);
+            boolean syncing = forms.stream().anyMatch(PwcView.Form::syncing);
+            WalletState state = locked ? WalletState.LOCKED : (syncing ? WalletState.SYNCING : WalletState.READY);
             entries.add(new WalletEntry(walletId, master, state, accounts));
         }
-        return entries;
+        return List.copyOf(entries);
     }
 
-    private interface AccountAction<T> {
-        T apply(AccountEntry account, WalletEntry wallet) throws Exception;
+    /** The entries of the current view, derived once per published view. */
+    private Entries entries() {
+        PwcView view = host.view();
+        Entries current = entries;
+        if(current == null || current.view() != view) {
+            current = new Entries(view, describe(view, ids));
+            entries = current;
+        }
+        return current;
     }
 
-    /** Runs the action on the wallet thread for a readable account. */
-    private <T> T withAccount(String accountId, AccountAction<T> action) throws PwcException {
+    private interface Call<T> {
+        T call() throws Exception;
+    }
+
+    /** No exception other than {@link PwcException} reaches the SDK. */
+    private static <T> T guard(String method, Call<T> call) throws PwcException {
         try {
-            return host.onWalletThread(() -> {
-                for(WalletEntry wallet : snapshot()) {
-                    for(AccountEntry account : wallet.accounts()) {
-                        if(account.accountId().equals(accountId)) {
-                            if(wallet.state() == WalletState.LOCKED) {
-                                throw new PwcException(ErrorCode.WALLET_LOCKED, "The wallet is locked");
-                            }
-                            return action.apply(account, wallet);
-                        }
-                    }
-                }
-                throw new PwcException(ErrorCode.ACCOUNT_NOT_FOUND, "No such account");
-            });
+            return call.call();
         } catch(PwcException e) {
             throw e;
-        } catch(Exception e) {
-            log.error("PWC backend error", e);
+        } catch(Throwable e) {
+            log.error("PWC backend error in " + method, e);
             throw new PwcException(ErrorCode.INTERNAL_ERROR, "The wallet could not complete the request");
         }
     }
 
-    private <T> T withAccount(String accountId, AccountAction<T> action, T otherwise) {
+    /** For the methods that declare no error: nothing is returned when the request cannot be answered. */
+    private static <T> T quietly(String method, Call<T> call, T otherwise) {
         try {
-            return withAccount(accountId, action);
+            return call.call();
         } catch(PwcException e) {
+            return otherwise;
+        } catch(Throwable e) {
+            log.error("PWC backend error in " + method, e);
             return otherwise;
         }
     }
 
-    /** The open wallet form of an account; called on the wallet thread. */
+    private interface AccountAction<T> {
+        T apply(AccountEntry account, WalletEntry wallet, PwcView view) throws Exception;
+    }
+
+    private <T> T withAccount(String accountId, AccountAction<T> action) throws Exception {
+        Entries current = entries();
+        for(WalletEntry wallet : current.wallets()) {
+            for(AccountEntry account : wallet.accounts()) {
+                if(account.accountId().equals(accountId)) {
+                    if(wallet.state() == WalletState.LOCKED) {
+                        throw new PwcException(ErrorCode.WALLET_LOCKED, "The wallet is locked");
+                    }
+                    return action.apply(account, wallet, current.view());
+                }
+            }
+        }
+        throw new PwcException(ErrorCode.ACCOUNT_NOT_FOUND, "No such account");
+    }
+
+    private Optional<AccountEntry> find(String accountId) {
+        return entries().wallets().stream().flatMap(wallet -> wallet.accounts().stream()).filter(account -> account.accountId().equals(accountId)).findFirst();
+    }
+
+    /** The open wallet form of an account; JavaFX thread only. */
     WalletForm walletForm(String accountId) {
-        return snapshot().stream().flatMap(wallet -> wallet.accounts().stream()).filter(account -> account.accountId().equals(accountId))
-                .map(AccountEntry::form).findFirst().orElse(null);
+        WalletForm form = find(accountId).map(account -> account.form().live()).orElse(null);
+        return form != null && host.openWalletForms().contains(form) ? form : null;
+    }
+
+    /** Whether the account signs with a USB device, through the device dialog in the prompt flow. */
+    boolean signsWithDevice(String accountId) {
+        return find(accountId).map(account -> account.signer() == Signer.DEVICE).orElse(false);
     }
 
     @Override
     public List<WalletInfo> wallets() {
-        try {
-            return host.onWalletThread(() -> snapshot().stream().map(wallet -> new WalletInfo(wallet.walletId(), wallet.master().getName(), network(),
-                    kind(wallet.master()), wallet.state(), wallet.state() == WalletState.LOCKED ? List.of() : wallet.accounts().stream().map(AccountEntry::accountId).toList())).toList());
-        } catch(Exception e) {
-            log.error("PWC backend error", e);
-            return List.of();
-        }
+        return quietly("wallets", () -> entries().wallets().stream().map(wallet -> new WalletInfo(wallet.walletId(), wallet.master().getName(), network(),
+                kind(wallet.master()), wallet.state(), wallet.state() == WalletState.LOCKED ? List.of() : wallet.accounts().stream().map(AccountEntry::accountId).toList())).toList(),
+                List.of());
     }
 
     private static WalletKind kind(Wallet master) {
@@ -215,27 +341,12 @@ public class PwcWalletBackend implements WalletBackend {
 
     @Override
     public Optional<AccountInfo> account(String accountId) {
-        try {
-            return host.onWalletThread(() -> {
-                for(WalletEntry wallet : snapshot()) {
-                    for(AccountEntry account : wallet.accounts()) {
-                        if(account.accountId().equals(accountId)) {
-                            return Optional.of(new AccountInfo(accountId, wallet.walletId(), account.wallet().getDisplayName(), network(),
-                                    account.signer() != Signer.NONE, account.segwit() ? ScriptType.P2WPKH : ScriptType.P2PKH, account.methods()));
-                        }
-                    }
-                }
-                return Optional.<AccountInfo>empty();
-            });
-        } catch(Exception e) {
-            log.error("PWC backend error", e);
-            return Optional.empty();
-        }
+        return quietly("account", () -> find(accountId).map(account -> new AccountInfo(accountId, account.walletId(), account.wallet().getDisplayName(), network(),
+                account.signer() != Signer.NONE, account.segwit() ? ScriptType.P2WPKH : ScriptType.P2PKH, account.methods())), Optional.empty());
     }
 
-    private Integer tip(Wallet wallet) {
-        Integer height = host.currentBlockHeight();
-        return height != null ? height : wallet.getStoredBlockHeight();
+    private static Integer tip(PwcView view, Wallet wallet) {
+        return view.height() != null ? view.height() : wallet.getStoredBlockHeight();
     }
 
     private static int confirmations(BlockTransactionHash reference, Integer tip) {
@@ -254,7 +365,7 @@ public class PwcWalletBackend implements WalletBackend {
         return reference.getSpentBy() == null;
     }
 
-    private static List<UtxoRestriction> restrictions(Wallet wallet, BlockTransactionHashIndex reference, Set<OutPoint> reserved) {
+    private static List<UtxoRestriction> restrictions(PwcView view, Wallet wallet, BlockTransactionHashIndex reference, Set<OutPoint> reserved) {
         List<UtxoRestriction> restrictions = new ArrayList<>();
         if(!new CoinbaseTxoFilter(wallet).isEligible(reference)) {
             restrictions.add(UtxoRestriction.IMMATURE);
@@ -265,7 +376,7 @@ public class PwcWalletBackend implements WalletBackend {
         if(reserved.contains(outPoint(reference))) {
             restrictions.add(UtxoRestriction.LOCKED);
         }
-        if(reference.getHeight() <= 0 && !Config.get().isIncludeMempoolOutputs()) {
+        if(reference.getHeight() <= 0 && !view.includeMempoolOutputs()) {
             restrictions.add(UtxoRestriction.UNCONFIRMED);
         }
         return restrictions;
@@ -287,7 +398,7 @@ public class PwcWalletBackend implements WalletBackend {
 
     @Override
     public Balance balance(String accountId, Set<OutPoint> reserved) throws PwcException {
-        return withAccount(accountId, (account, wallet) -> {
+        return guard("balance", () -> withAccount(accountId, (account, wallet, view) -> {
             Wallet accountWallet = account.wallet();
             if(accountWallet.getStoredBlockHeight() == null) {
                 throw new PwcException(ErrorCode.SYNC_INCOMPLETE, "The wallet has not synchronized yet");
@@ -315,7 +426,7 @@ public class PwcWalletBackend implements WalletBackend {
                 }
 
                 if(isEffective(reference)) {
-                    List<UtxoRestriction> restrictions = restrictions(accountWallet, reference, reserved);
+                    List<UtxoRestriction> restrictions = restrictions(view, accountWallet, reference, reserved);
                     if(restrictions.contains(UtxoRestriction.IMMATURE)) {
                         immature += reference.getValue();
                     } else if(restrictions.contains(UtxoRestriction.FROZEN) || restrictions.contains(UtxoRestriction.LOCKED)) {
@@ -328,47 +439,47 @@ public class PwcWalletBackend implements WalletBackend {
 
             BalanceComponents components = new BalanceComponents(confirmed, pendingSelf, pendingExternal, pendingOutgoing,
                     pendingSelf + pendingExternal - pendingOutgoing, spendable, locked, immature);
-            return new Balance(accountId, network(), components, updatedAt(account, wallet), syncStatus(wallet));
-        });
+            return new Balance(accountId, network(), components, updatedAt(view, account, wallet), syncStatus(view, wallet));
+        }));
     }
 
-    private SyncStatus syncStatus(WalletEntry wallet) {
-        SyncState state = !host.isConnected() ? SyncState.OFFLINE : (wallet.state() == WalletState.SYNCING ? SyncState.SYNCING : SyncState.SYNCED);
-        return new SyncStatus(state, tip(wallet.master()));
+    private static SyncStatus syncStatus(PwcView view, WalletEntry wallet) {
+        SyncState state = !view.connected() ? SyncState.OFFLINE : (wallet.state() == WalletState.SYNCING ? SyncState.SYNCING : SyncState.SYNCED);
+        return new SyncStatus(state, tip(view, wallet.master()));
     }
 
-    private Instant updatedAt(AccountEntry account, WalletEntry wallet) {
-        if(syncStatus(wallet).state() == SyncState.SYNCED) {
-            return Instant.now();
+    private Instant updatedAt(PwcView view, AccountEntry account, WalletEntry wallet) {
+        if(syncStatus(view, wallet).state() == SyncState.SYNCED) {
+            return clock.instant();
         }
-        Instant syncedAt = host.syncedAt(wallet.master());
-        return syncedAt != null ? syncedAt : Instant.ofEpochMilli(account.form().getWalletFile().lastModified());
+        Instant syncedAt = account.form().syncedAt();
+        return syncedAt != null ? syncedAt : Instant.ofEpochMilli(account.form().walletFileModified());
     }
 
     @Override
     public List<Utxo> utxos(String accountId, Set<OutPoint> reserved) throws PwcException {
-        return withAccount(accountId, (account, wallet) -> {
+        return guard("utxos", () -> withAccount(accountId, (account, wallet, view) -> {
             Wallet accountWallet = account.wallet();
-            Integer tip = tip(accountWallet);
+            Integer tip = tip(view, accountWallet);
             List<Utxo> utxos = new ArrayList<>();
             for(Map.Entry<BlockTransactionHashIndex, WalletNode> entry : accountWallet.getWalletUtxos().entrySet()) {
                 BlockTransactionHashIndex reference = entry.getKey();
                 WalletNode node = entry.getValue();
-                List<UtxoRestriction> restrictions = restrictions(accountWallet, reference, reserved);
+                List<UtxoRestriction> restrictions = restrictions(view, accountWallet, reference, reserved);
                 int confirmations = confirmations(reference, tip);
                 utxos.add(new Utxo(reference.getHashAsString(), (int)reference.getIndex(), accountId, network(), reference.getValue(), confirmations,
                         confirmations > 0 ? reference.getHeight() : null, node.getAddress().toString(), node.getOutputScript().getProgram(),
                         restrictions.isEmpty(), restrictions, node.getKeyPurpose() == KeyPurpose.CHANGE));
             }
             return utxos;
-        });
+        }));
     }
 
     @Override
     public List<TransactionRecord> transactions(String accountId) throws PwcException {
-        return withAccount(accountId, (account, wallet) -> {
+        return guard("transactions", () -> withAccount(accountId, (account, wallet, view) -> {
             Wallet accountWallet = account.wallet();
-            Integer tip = tip(accountWallet);
+            Integer tip = tip(view, accountWallet);
             Set<BlockTransactionHashIndex> txos = accountWallet.getWalletTxos().keySet();
             List<BlockTransaction> blockTransactions = new ArrayList<>(accountWallet.getWalletTransactions().values());
             blockTransactions.sort(Comparator.comparingInt((BlockTransaction tx) -> tx.getHeight() > 0 ? tx.getHeight() : Integer.MAX_VALUE).reversed());
@@ -390,7 +501,7 @@ public class PwcWalletBackend implements WalletBackend {
                         null, confirmed && blockTransaction.getDate() != null ? blockTransaction.getDate().toInstant() : null, net, blockTransaction.getFee(), null));
             }
             return records;
-        });
+        }));
     }
 
     private static AddressRecord record(String accountId, WalletNode node) {
@@ -398,24 +509,62 @@ public class PwcWalletBackend implements WalletBackend {
                 node.isUsed() ? AddressState.USED : AddressState.UNUSED, node.getLabel());
     }
 
+    /** The first unused receive address without a label that this backend has not handed out in this session. */
+    private WalletNode freshReceiveNode(AccountEntry account) {
+        Wallet wallet = account.wallet();
+        Set<Integer> given = handedOut.getOrDefault(account.accountId(), Set.of());
+        WalletNode node = wallet.getFreshNode(KeyPurpose.RECEIVE);
+        while((node.getLabel() != null && !node.getLabel().isEmpty()) || given.contains(node.getIndex())) {
+            node = wallet.getFreshNode(KeyPurpose.RECEIVE, node);
+        }
+        return node;
+    }
+
     @Override
     public AddressRecord receiveAddress(String accountId) throws PwcException {
-        return withAccount(accountId, (account, wallet) -> record(accountId, account.form().getFreshNodeEntry(KeyPurpose.RECEIVE, null).getNode()));
+        return guard("receiveAddress", () -> withAccount(accountId, (account, wallet, view) -> record(accountId, freshReceiveNode(account))));
     }
 
     @Override
     public AddressRecord createAddress(String accountId, String label) throws PwcException {
-        return withAccount(accountId, (account, wallet) -> {
-            NodeEntry entry = account.form().getFreshNodeEntry(KeyPurpose.RECEIVE, null);
-            entry.labelProperty().set(label == null || label.isBlank() ? DEFAULT_ADDRESS_LABEL : label);
-            account.form().ensureSufficientGapLimit(entry);
-            return record(accountId, entry.getNode());
-        });
+        return guard("createAddress", () -> withAccount(accountId, (account, wallet, view) -> {
+            WalletNode node = freshReceiveNode(account);
+            String applied = label == null || label.isBlank() ? DEFAULT_ADDRESS_LABEL : label;
+            handedOut.computeIfAbsent(accountId, id -> ConcurrentHashMap.newKeySet()).add(node.getIndex());
+            node.setLabel(applied);
+            WalletForm live = account.form().live();
+            int index = node.getIndex();
+            host.onWalletThread(() -> label(live, index, applied));
+            return record(accountId, node);
+        }));
+    }
+
+    /** Labels the receive address and extends the gap limit to it in the open wallet; JavaFX thread. */
+    private static void label(WalletForm form, int index, String label) {
+        Wallet wallet = form.getWallet();
+        WalletNode purpose = wallet.getNode(KeyPurpose.RECEIVE);
+        purpose.fillToIndex(wallet, index);
+        WalletNode node = purpose.getChildren().stream().filter(child -> child.getIndex() == index).findFirst().orElseThrow();
+        NodeEntry root = form.getNodeEntry(KeyPurpose.RECEIVE);
+        NodeEntry entry = null;
+        for(Entry child : root.getChildren()) {
+            if(child instanceof NodeEntry nodeEntry && nodeEntry.getNode().equals(node)) {
+                entry = nodeEntry;
+            }
+        }
+        if(entry == null) {
+            entry = new NodeEntry(wallet, node);
+            root.getChildren().add(entry);
+        }
+        if(entry.getLabel() == null || entry.getLabel().isEmpty()) {
+            entry.labelProperty().set(label);
+        }
+        form.ensureSufficientGapLimit(entry);
     }
 
     @Override
     public List<AddressRecord> addresses(String accountId) {
-        return withAccount(accountId, (account, wallet) -> {
+        return quietly("addresses", () -> withAccount(accountId, (account, wallet, view) -> {
             List<AddressRecord> records = new ArrayList<>();
             for(KeyPurpose purpose : List.of(KeyPurpose.RECEIVE, KeyPurpose.CHANGE)) {
                 for(WalletNode node : account.wallet().getNode(purpose).getChildren()) {
@@ -423,13 +572,13 @@ public class PwcWalletBackend implements WalletBackend {
                 }
             }
             return records;
-        }, List.of());
+        }), List.of());
     }
 
     @Override
     public boolean ownsScript(String accountId, byte[] scriptPubKey) {
-        return withAccount(accountId, (account, wallet) -> account.wallet().getWalletOutputScripts().keySet().stream()
-                .anyMatch(script -> Arrays.equals(script.getProgram(), scriptPubKey)), false);
+        return quietly("ownsScript", () -> withAccount(accountId, (account, wallet, view) -> account.wallet().getWalletOutputScripts().keySet().stream()
+                .anyMatch(script -> Arrays.equals(script.getProgram(), scriptPubKey))), false);
     }
 
     private static Optional<BlockTransactionHashIndex> find(Wallet wallet, OutPoint outPoint) {
@@ -439,32 +588,35 @@ public class PwcWalletBackend implements WalletBackend {
 
     @Override
     public boolean isUnspent(String accountId, OutPoint outPoint) {
-        return withAccount(accountId, (account, wallet) -> find(account.wallet(), outPoint).filter(PwcWalletBackend::isEffective).isPresent(), false);
+        return quietly("isUnspent", () -> withAccount(accountId, (account, wallet, view) -> find(account.wallet(), outPoint).filter(PwcWalletBackend::isEffective).isPresent()), false);
     }
 
     @Override
     public Optional<TxOut> ownedOutput(String accountId, OutPoint outPoint) {
-        return withAccount(accountId, (account, wallet) -> {
+        return quietly("ownedOutput", () -> withAccount(accountId, (account, wallet, view) -> {
             Map<BlockTransactionHashIndex, WalletNode> txos = account.wallet().getWalletTxos();
             return find(account.wallet(), outPoint).map(reference -> new TxOut(reference.getValue(), txos.get(reference).getOutputScript().getProgram()));
-        }, Optional.empty());
+        }), Optional.empty());
     }
 
     @Override
     public OptionalLong feeEstimate(String network, long targetBlocks) {
-        Map<Integer, Double> rates = host.targetBlockFeeRates();
-        if(!network().equals(network) || !host.isConnected() || rates == null || rates.isEmpty()) {
-            return OptionalLong.empty();
-        }
-        TreeMap<Integer, Double> sorted = new TreeMap<>(rates);
-        Map.Entry<Integer, Double> entry = sorted.floorEntry((int)Math.min(targetBlocks, Integer.MAX_VALUE));
-        double rate = (entry != null ? entry : sorted.firstEntry()).getValue();
-        return OptionalLong.of(Math.round(rate * 1000));
+        return quietly("feeEstimate", () -> {
+            PwcView view = host.view();
+            Map<Integer, Double> rates = view.feeRates();
+            if(!network().equals(network) || !view.connected() || rates == null || rates.isEmpty()) {
+                return OptionalLong.empty();
+            }
+            TreeMap<Integer, Double> sorted = new TreeMap<>(rates);
+            Map.Entry<Integer, Double> entry = sorted.floorEntry((int)Math.min(targetBlocks, Integer.MAX_VALUE));
+            double rate = (entry != null ? entry : sorted.firstEntry()).getValue();
+            return OptionalLong.of(Math.round(rate * 1000));
+        }, OptionalLong.empty());
     }
 
     @Override
     public CreatedPsbt createPsbt(String accountId, CreateRequest request, Set<OutPoint> excluded) throws PwcException {
-        return withAccount(accountId, (account, wallet) -> {
+        return guard("createPsbt", () -> withAccount(accountId, (account, wallet, view) -> {
             Wallet accountWallet = account.wallet();
             List<Payment> payments = new ArrayList<>();
             for(TxOut output : request.outputs()) {
@@ -476,7 +628,7 @@ public class PwcWalletBackend implements WalletBackend {
             }
 
             double feeRate = request.feeRate() / 1000.0;
-            Map<Integer, Double> rates = host.targetBlockFeeRates();
+            Map<Integer, Double> rates = view.feeRates();
             double longTermFeeRate = Math.max(Math.min(feeRate, rates == null || rates.isEmpty() ? feeRate : Collections.min(rates.values())), Transaction.DUST_RELAY_TX_FEE);
 
             List<TxoFilter> filters = List.of(new SpentTxoFilter(), new FrozenTxoFilter(), new CoinbaseTxoFilter(accountWallet),
@@ -495,9 +647,8 @@ public class PwcWalletBackend implements WalletBackend {
                 selectors = List.of(new BnBUtxoSelector(noInputsFee, costOfChange), new KnapsackUtxoSelector(noInputsFee));
             }
 
-            Config config = Config.get();
             TransactionParameters parameters = new TransactionParameters(selectors, filters, payments, List.of(), Set.of(), feeRate, longTermFeeRate,
-                    host.minimumRelayFeeRate(), null, host.currentBlockHeight(), config.isGroupByAddress(), config.isIncludeMempoolOutputs(), request.replaceable());
+                    view.minimumRelayFeeRate(), null, view.height(), view.groupByAddress(), view.includeMempoolOutputs(), request.replaceable());
             WalletTransaction walletTransaction;
             try {
                 walletTransaction = accountWallet.createWalletTransaction(parameters);
@@ -519,7 +670,7 @@ public class PwcWalletBackend implements WalletBackend {
             List<OutPoint> inputs = psbt.getTransaction().getInputs().stream()
                     .map(input -> new OutPoint(input.getOutpoint().getHash().toString(), (int)input.getOutpoint().getIndex())).toList();
             return new CreatedPsbt(psbt.serialize(), walletTransaction.getFee(), (long)Math.ceil(walletTransaction.getVirtualSize()), changeIndexes, inputs);
-        });
+        }));
     }
 
     private static PSBT parse(byte[] psbt) throws PwcException {
@@ -530,13 +681,16 @@ public class PwcWalletBackend implements WalletBackend {
         }
     }
 
-    /** A wallet copy with usable private keys: the decrypted copy handed over for this request, or a copy of an unencrypted wallet. */
-    private Wallet signingCopy(String accountId) throws PwcException {
-        Wallet decrypted = unlocked.remove(accountId);
-        if(decrypted != null) {
-            return decrypted;
+    /**
+     * A wallet copy with usable private keys: the decrypted copy unlocked for this request, or a copy of an unencrypted wallet.
+     * An approval left for the account is always taken, so that it serves at most one call.
+     */
+    private Wallet signingCopy(AccountEntry account, String subject) throws PwcException {
+        Approval approval = take(account.accountId(), subject);
+        if(approval != null && approval.decrypted() != null) {
+            return approval.decrypted();
         }
-        Wallet copy = withAccount(accountId, (account, wallet) -> account.wallet().copy());
+        Wallet copy = account.wallet().copy();
         if(copy.isEncrypted()) {
             throw new PwcException(ErrorCode.SIGNER_UNAVAILABLE, "The wallet is encrypted and was not unlocked for this request");
         }
@@ -545,100 +699,133 @@ public class PwcWalletBackend implements WalletBackend {
 
     @Override
     public SignedPsbt signPsbt(String accountId, byte[] psbtBytes, List<Integer> inputs) throws PwcException {
-        PSBT psbt = parse(psbtBytes);
-        Signer signer = withAccount(accountId, (account, wallet) -> account.signer());
-        List<Integer> signed = new ArrayList<>();
-        if(signer == Signer.DEVICE) {
-            Wallet deviceWallet = withAccount(accountId, (account, wallet) -> account.wallet());
-            PSBT deviceSigned = host.signWithDevice(deviceWallet, parse(psbt.serialize()));
-            if(deviceSigned == null) {
-                throw new PwcException(ErrorCode.USER_REJECTED, "The signature was cancelled on the device");
-            }
-            try {
-                psbt.verifyCombinedSignatures(deviceSigned);
-            } catch(Exception e) {
-                throw new PwcException(ErrorCode.PSBT_VALIDATION_FAILED, "The device returned invalid signatures");
-            }
-            for(int index : inputs) {
-                Map<ECKey, TransactionSignature> signatures = deviceSigned.getPsbtInputs().get(index).getPartialSignatures();
-                if(!signatures.isEmpty()) {
-                    psbt.getPsbtInputs().get(index).getPartialSignatures().putAll(signatures);
-                    signed.add(index);
-                }
-            }
-        } else if(signer == Signer.SOFTWARE) {
-            Wallet copy = signingCopy(accountId);
-            try {
-                Map<PSBTInput, WalletNode> signingNodes = copy.getSigningNodes(psbt);
-                Map<PSBTInput, WalletNode> requested = new LinkedHashMap<>();
-                for(int index : inputs) {
-                    PSBTInput input = psbt.getPsbtInputs().get(index);
-                    if(signingNodes.containsKey(input)) {
-                        requested.put(input, signingNodes.get(input));
+        return guard("signPsbt", () -> {
+            PSBT psbt = parse(psbtBytes);
+            AccountEntry account = withAccount(accountId, (entry, wallet, view) -> entry);
+            String subject = psbtSubject(psbtBytes, inputs);
+            List<Integer> signed = new ArrayList<>();
+            if(account.signer() == Signer.DEVICE) {
+                Approval approval = take(accountId, subject);
+                if(approval == null || approval.deviceSigned() == null) {
+                    if(approval != null) {
+                        approval.clear();
                     }
+                    throw new PwcException(ErrorCode.SIGNER_UNAVAILABLE, "The device did not sign this request in the wallet");
                 }
-                copy.sign(requested);
+                try {
+                    psbt.verifyCombinedSignatures(approval.deviceSigned());
+                } catch(Exception e) {
+                    throw new PwcException(ErrorCode.PSBT_VALIDATION_FAILED, "The device returned invalid signatures");
+                }
                 for(int index : inputs) {
-                    if(requested.containsKey(psbt.getPsbtInputs().get(index)) && !psbt.getPsbtInputs().get(index).getPartialSignatures().isEmpty()) {
+                    Map<ECKey, TransactionSignature> signatures = approval.deviceSigned().getPsbtInputs().get(index).getPartialSignatures();
+                    if(!signatures.isEmpty()) {
+                        psbt.getPsbtInputs().get(index).getPartialSignatures().putAll(signatures);
                         signed.add(index);
                     }
                 }
+            } else if(account.signer() == Signer.SOFTWARE) {
+                Wallet copy = signingCopy(account, subject);
+                try {
+                    Map<PSBTInput, WalletNode> signingNodes = copy.getSigningNodes(psbt);
+                    Map<PSBTInput, WalletNode> requested = new LinkedHashMap<>();
+                    for(int index : inputs) {
+                        PSBTInput input = psbt.getPsbtInputs().get(index);
+                        if(signingNodes.containsKey(input)) {
+                            requested.put(input, signingNodes.get(input));
+                        }
+                    }
+                    copy.sign(requested);
+                    for(int index : inputs) {
+                        if(requested.containsKey(psbt.getPsbtInputs().get(index)) && !psbt.getPsbtInputs().get(index).getPartialSignatures().isEmpty()) {
+                            signed.add(index);
+                        }
+                    }
+                } catch(MnemonicException e) {
+                    throw new PwcException(ErrorCode.SIGNER_UNAVAILABLE, "The wallet keys are not available");
+                } finally {
+                    copy.clearPrivate();
+                }
+            } else {
+                throw new PwcException(ErrorCode.UNSUPPORTED_OPERATION, "This account cannot sign");
+            }
+            return new SignedPsbt(psbt.serialize(), signed);
+        });
+    }
+
+    @Override
+    public byte[] signMessage(String accountId, byte[] scriptPubKey, String message, MessageFormat format) throws PwcException {
+        return guard("signMessage", () -> {
+            Address address = new Script(scriptPubKey).getToAddress();
+            AccountEntry account = withAccount(accountId, (entry, wallet, view) -> entry);
+            WalletNode node = address == null ? null : account.wallet().getWalletAddresses().get(address);
+            if(node == null) {
+                throw new PwcException(ErrorCode.INVALID_ARGUMENT, "The address does not belong to this account");
+            }
+            Wallet copy = signingCopy(account, messageSubject(address.toString(), message, format));
+            try {
+                ECKey key = copy.getKeystores().getFirst().getKey(node);
+                String signature = switch(format) {
+                    case BIP322_SIMPLE -> Bip322.signMessageBip322(com.sparrowwallet.drongo.protocol.ScriptType.P2WPKH, message, key).substring(Bip322.SIMPLE_PREFIX.length());
+                    case LEGACY -> key.signMessage(message, com.sparrowwallet.drongo.protocol.ScriptType.P2PKH);
+                    case BIP322_FULL -> throw new PwcException(ErrorCode.UNSUPPORTED_OPERATION, "BIP-322 full signatures are not supported");
+                };
+                return Base64.getDecoder().decode(signature);
             } catch(MnemonicException e) {
                 throw new PwcException(ErrorCode.SIGNER_UNAVAILABLE, "The wallet keys are not available");
             } finally {
                 copy.clearPrivate();
             }
-        } else {
-            throw new PwcException(ErrorCode.UNSUPPORTED_OPERATION, "This account cannot sign");
-        }
-        return new SignedPsbt(psbt.serialize(), signed);
+        });
     }
 
-    @Override
-    public byte[] signMessage(String accountId, byte[] scriptPubKey, String message, MessageFormat format) throws PwcException {
-        Address address = new Script(scriptPubKey).getToAddress();
-        WalletNode node = address == null ? null : withAccount(accountId, (account, wallet) -> account.wallet().getWalletAddresses().get(address));
-        if(node == null) {
-            throw new PwcException(ErrorCode.INVALID_ARGUMENT, "The address does not belong to this account");
-        }
-        Wallet copy = signingCopy(accountId);
+    /** Sends through the host on a separate thread and waits at most {@code broadcastTimeout}. */
+    private Sha256Hash send(Transaction transaction) throws PwcException {
+        Future<Sha256Hash> sent = broadcaster.submit(() -> host.broadcast(transaction));
         try {
-            ECKey key = copy.getKeystores().getFirst().getKey(node);
-            String signature = switch(format) {
-                case BIP322_SIMPLE -> Bip322.signMessageBip322(com.sparrowwallet.drongo.protocol.ScriptType.P2WPKH, message, key).substring(Bip322.SIMPLE_PREFIX.length());
-                case LEGACY -> key.signMessage(message, com.sparrowwallet.drongo.protocol.ScriptType.P2PKH);
-                case BIP322_FULL -> throw new PwcException(ErrorCode.UNSUPPORTED_OPERATION, "BIP-322 full signatures are not supported");
-            };
-            return Base64.getDecoder().decode(signature);
-        } catch(MnemonicException e) {
-            throw new PwcException(ErrorCode.SIGNER_UNAVAILABLE, "The wallet keys are not available");
-        } finally {
-            copy.clearPrivate();
+            return sent.get(broadcastTimeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch(TimeoutException e) {
+            sent.cancel(true);
+            throw new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The server did not answer in time; the transaction may still arrive");
+        } catch(InterruptedException e) {
+            sent.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The broadcast was interrupted");
+        } catch(ExecutionException e) {
+            if(e.getCause() instanceof PwcException failure) {
+                throw failure;
+            }
+            log.error("PWC broadcast error", e.getCause());
+            throw new PwcException(ErrorCode.INTERNAL_ERROR, "The wallet could not complete the request");
         }
     }
 
     @Override
     public String broadcast(String network, byte[] transactionBytes) throws PwcException {
-        if(!network().equals(network)) {
-            throw new PwcException(ErrorCode.NETWORK_MISMATCH, "This wallet runs on " + network());
-        }
-        Transaction transaction;
-        try {
-            transaction = new Transaction(transactionBytes);
-        } catch(Exception e) {
-            throw new PwcException(ErrorCode.INVALID_ARGUMENT, "The transaction cannot be parsed");
-        }
-        if(!host.isConnected()) {
-            throw new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The wallet is not connected to a server");
-        }
-        if(!host.acceptReplayRisk(transaction)) {
-            throw new PwcException(ErrorCode.USER_REJECTED, "The replay risk was not accepted");
-        }
-        try {
-            return host.broadcast(transaction).toString();
-        } catch(Exception e) {
-            log.warn("PWC broadcast refused", e);
-            throw new PwcException(ErrorCode.TRANSACTION_REJECTED, "The server refused the transaction");
-        }
+        return guard("broadcast", () -> {
+            if(!network().equals(network)) {
+                throw new PwcException(ErrorCode.NETWORK_MISMATCH, "This wallet runs on " + network());
+            }
+            Transaction transaction;
+            try {
+                transaction = new Transaction(transactionBytes);
+            } catch(Exception e) {
+                throw new PwcException(ErrorCode.INVALID_ARGUMENT, "The transaction cannot be parsed");
+            }
+            if(!host.view().connected()) {
+                throw new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The wallet is not connected to a server");
+            }
+            String key = replayKey(transaction);
+            if(LegacyUtxoChecker.isSupported(Network.get()) && !isReplayCleared(key)) {
+                throw new PwcException(ErrorCode.POLICY_VIOLATION,
+                        "The legacy-chain replay risk of this transaction was not cleared in a PWC signing prompt; broadcast it from PurityWallet");
+            }
+            Sha256Hash txid = send(transaction);
+            if(!transaction.getTxId().equals(txid)) {
+                throw new PwcException(ErrorCode.TRANSACTION_REJECTED, "The server did not accept this transaction");
+            }
+            replayClearances.remove(key);
+            return transaction.getTxId().toString();
+        });
     }
 }

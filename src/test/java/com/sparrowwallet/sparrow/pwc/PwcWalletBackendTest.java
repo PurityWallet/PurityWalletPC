@@ -12,6 +12,7 @@ import com.sparrowwallet.drongo.protocol.Script;
 import com.sparrowwallet.drongo.protocol.ScriptType;
 import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.Transaction;
+import com.sparrowwallet.drongo.protocol.TransactionWitness;
 import com.sparrowwallet.drongo.psbt.PSBT;
 import com.sparrowwallet.drongo.wallet.*;
 import com.sparrowwallet.sparrow.io.Storage;
@@ -22,7 +23,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,14 +40,55 @@ class PwcWalletBackendTest {
     private FakeHost host;
     private PwcIds ids;
     private PwcWalletBackend backend;
+    private TestClock clock;
     private final Random random = new Random(7);
+
+    static final class TestClock extends Clock {
+        Instant now = Instant.parse("2026-11-27T00:00:00Z");
+
+        void advance(Duration duration) {
+            now = now.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
+    }
+
+    private static final Duration BROADCAST_TIMEOUT = Duration.ofMillis(300);
 
     @BeforeEach
     void setUp() throws Exception {
         Network.set(Network.REGTEST);
         host = new FakeHost();
         ids = PwcIds.load(new File(dir, "pwc"));
-        backend = new PwcWalletBackend(host, ids);
+        clock = new TestClock();
+        backend = new PwcWalletBackend(host, ids, clock, BROADCAST_TIMEOUT);
+    }
+
+    /** Runs the call on another thread and fails if it takes longer than {@code limit}. */
+    private static <T> T within(Duration limit, Callable<T> call) throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            return executor.submit(call).get(limit.toMillis(), TimeUnit.MILLISECONDS);
+        } catch(ExecutionException e) {
+            throw e.getCause() instanceof Exception cause ? cause : e;
+        } catch(TimeoutException e) {
+            throw new AssertionError("The backend call took longer than " + limit, e);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private WalletForm open(Wallet wallet) {
@@ -294,10 +342,13 @@ class PwcWalletBackendTest {
         AddressRecord created = backend.createAddress(accountId(wallet), "Invoice 7");
         assertEquals(current.address(), created.address());
         assertEquals("Invoice 7", created.label());
+        assertNull(wallet.getWalletAddresses().get(Address.fromString(created.address())).getLabel(), "the label waits for the wallet thread");
+        host.runWalletThread();
         assertEquals("Invoice 7", wallet.getWalletAddresses().get(Address.fromString(created.address())).getLabel());
         AddressRecord next = backend.createAddress(accountId(wallet), null);
         assertNotEquals(created.address(), next.address());
         assertEquals(PwcWalletBackend.DEFAULT_ADDRESS_LABEL, next.label());
+        host.runWalletThread();
         assertTrue(backend.addresses(accountId(wallet)).stream().anyMatch(a -> a.address().equals(created.address()) && "Invoice 7".equals(a.label())));
         assertTrue(backend.ownsScript(accountId(wallet), Address.fromString(created.address()).getOutputScript().getProgram()));
         assertFalse(backend.ownsScript(accountId(wallet), foreignScript().getProgram()));
@@ -377,38 +428,96 @@ class PwcWalletBackendTest {
 
         assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1))));
 
-        Wallet decrypted = wallet.copy();
-        decrypted.decrypt("pass");
-        backend.unlocked(accountId(wallet), decrypted);
+        String subject = PwcWalletBackend.psbtSubject(psbt.serialize(), List.of(0, 1));
+        Wallet decrypted = decrypted(wallet);
+        backend.unlocked(accountId(wallet), subject, decrypted);
         assertEquals(List.of(0, 1), backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1)).signedInputs());
-        assertTrue(decrypted.getKeystores().getFirst().getSeed().getMnemonicCode().isEmpty(), "the decrypted copy is cleared after one signature");
-        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0))));
+        assertTrue(isCleared(decrypted), "the decrypted copy is cleared after one signature");
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1))));
+
+        Wallet other = decrypted(wallet);
+        backend.unlocked(accountId(wallet), subject, other);
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0))), "other inputs than those approved");
+        assertTrue(isCleared(other), "a copy unlocked for another request is cleared, not used");
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1))), "and not kept");
+
+        Wallet late = decrypted(wallet);
+        backend.unlocked(accountId(wallet), subject, late);
+        clock.advance(PwcWalletBackend.APPROVAL_LIFETIME.plusSeconds(1));
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1))), "an expired unlock");
+        assertTrue(isCleared(late));
+
+        Wallet replaced = decrypted(wallet);
+        backend.unlocked(accountId(wallet), subject, replaced);
+        backend.unlocked(accountId(wallet), subject, decrypted(wallet));
+        assertTrue(isCleared(replaced), "a replaced copy is cleared");
+        backend.discardApproval(accountId(wallet));
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1))));
+    }
+
+    private static Wallet decrypted(Wallet encrypted) {
+        Wallet copy = encrypted.copy();
+        copy.decrypt("pass");
+        return copy;
+    }
+
+    private static boolean isCleared(Wallet wallet) {
+        return wallet.getKeystores().getFirst().getSeed().getMnemonicCode().isEmpty();
     }
 
     @Test
-    void hardwareSignaturesAreTakenOnlyForTheRequestedInputs() throws Exception {
+    void encryptedWalletsSignOnlyTheMessageUnlockedForTheRequest() throws Exception {
+        Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
+        open(wallet);
+        Address address = node(wallet, KeyPurpose.RECEIVE, 0).getAddress();
+        wallet.encrypt(new Argon2KeyDeriver().deriveKey("pass"));
+        byte[] script = address.getOutputScript().getProgram();
+
+        backend.unlocked(accountId(wallet), PwcWalletBackend.messageSubject(address.toString(), "Approved", MessageFormat.BIP322_SIMPLE), decrypted(wallet));
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signMessage(accountId(wallet), script, "Something else", MessageFormat.BIP322_SIMPLE)));
+
+        backend.unlocked(accountId(wallet), PwcWalletBackend.messageSubject(address.toString(), "Approved", MessageFormat.BIP322_SIMPLE), decrypted(wallet));
+        byte[] signature = backend.signMessage(accountId(wallet), script, "Approved", MessageFormat.BIP322_SIMPLE);
+        assertTrue(Bip322.verifyMessageBip322(ScriptType.P2WPKH, address, "Approved", Base64.getEncoder().encodeToString(signature)));
+    }
+
+    private static PSBT deviceSign(Wallet software, PSBT request) throws Exception {
+        PSBT copy = new PSBT(request.serialize());
+        software.copy().sign(copy);
+        return copy;
+    }
+
+    @Test
+    void hardwareSignaturesComeOnlyFromTheDeviceApprovalForThatPsbt() throws Exception {
         Wallet software = PwcTestWallets.software("Main", ScriptType.P2WPKH);
         Wallet device = PwcTestWallets.hardware(software);
         open(device);
         PSBT psbt = twoInputPsbt(device);
-        host.device = (wallet, request) -> {
-            try {
-                PSBT copy = new PSBT(request.serialize());
-                software.copy().sign(copy);
-                return copy;
-            } catch(Exception e) {
-                throw new IllegalStateException(e);
-            }
-        };
+        String accountId = accountId(device);
 
-        SignedPsbt signed = backend.signPsbt(accountId(device), psbt.serialize(), List.of(0));
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId, psbt.serialize(), List.of(0))), "no device signature was taken for this request");
+
+        backend.deviceSigned(accountId, PwcWalletBackend.psbtSubject(psbt.serialize(), List.of(0)), deviceSign(software, psbt));
+        SignedPsbt signed = within(Duration.ofSeconds(2), () -> backend.signPsbt(accountId, psbt.serialize(), List.of(0)));
         PSBT result = new PSBT(signed.psbt());
         assertEquals(List.of(0), signed.signedInputs());
         assertEquals(1, result.getPsbtInputs().get(0).getPartialSignatures().size());
         assertTrue(result.getPsbtInputs().get(1).getPartialSignatures().isEmpty());
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId, psbt.serialize(), List.of(0))), "a device signature serves one request");
 
-        host.device = (wallet, request) -> null;
-        assertEquals(ErrorCode.USER_REJECTED, code(() -> backend.signPsbt(accountId(device), psbt.serialize(), List.of(0))));
+        PSBT other = new PSBT(backend.createPsbt(accountId, new CreateRequest(List.of(new TxOut(120_000, foreignScript().getProgram())), 3_000, null, true), Set.of()).psbt());
+        assertFalse(Arrays.equals(psbt.serialize(), other.serialize()));
+        backend.deviceSigned(accountId, PwcWalletBackend.psbtSubject(psbt.serialize(), List.of(0)), deviceSign(software, psbt));
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId, other.serialize(), List.of(0))), "another PSBT than the one approved");
+
+        backend.deviceSigned(accountId, PwcWalletBackend.psbtSubject(psbt.serialize(), List.of(0)), deviceSign(software, psbt));
+        clock.advance(PwcWalletBackend.APPROVAL_LIFETIME.plusSeconds(1));
+        assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId, psbt.serialize(), List.of(0))), "an expired device signature");
+
+        PSBT wrongSignatures = new PSBT(psbt.serialize());
+        wrongSignatures.getPsbtInputs().get(0).getPartialSignatures().putAll(deviceSign(software, other).getPsbtInputs().get(0).getPartialSignatures());
+        backend.deviceSigned(accountId, PwcWalletBackend.psbtSubject(psbt.serialize(), List.of(0)), wrongSignatures);
+        assertEquals(ErrorCode.PSBT_VALIDATION_FAILED, code(() -> backend.signPsbt(accountId, psbt.serialize(), List.of(0))), "signatures that do not verify for this PSBT");
     }
 
     @Test
@@ -432,30 +541,215 @@ class PwcWalletBackendTest {
         assertEquals(ErrorCode.INVALID_ARGUMENT, code(() -> backend.signMessage(accountId(segwit), foreignScript().getProgram(), message, MessageFormat.BIP322_SIMPLE)));
     }
 
-    @Test
-    void broadcastAppliesTheReplayCheckAndReportsFailures() throws Exception {
-        Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
-        open(wallet);
+    private Transaction transaction(int seed) {
+        return transaction(seed, 1_000);
+    }
+
+    private Transaction transaction(int seed, long value) {
         Transaction tx = new Transaction();
-        tx.addInput(Sha256Hash.wrap("ab".repeat(32)), 0, new Script(new byte[0]));
-        tx.addOutput(1_000, foreignScript());
+        tx.addInput(Sha256Hash.wrap(String.format("%02x", seed).repeat(32)), 0, new Script(new byte[0]));
+        tx.addOutput(value, foreignScript());
+        return tx;
+    }
+
+    /** The transaction as a Client returns it after finalizing: the same inputs and outputs with a witness. */
+    private static Transaction finalized(Transaction unsigned) {
+        Transaction tx = new Transaction(unsigned.bitcoinSerialize());
+        tx.getInputs().getFirst().setWitness(new TransactionWitness(tx, List.of(new byte[71], new byte[33])));
+        return tx;
+    }
+
+    @Test
+    void broadcastReturnsTheTxidInDisplayOrderAndReportsFailures() throws Exception {
+        Transaction tx = transaction(0xab);
         byte[] raw = tx.bitcoinSerialize();
+        byte[] internal = Sha256Hash.hashTwice(raw);
+        StringBuilder display = new StringBuilder();
+        for(int i = internal.length - 1; i >= 0; i--) {
+            display.append(String.format("%02x", internal[i]));
+        }
 
-        assertEquals(tx.getTxId().toString(), backend.broadcast("regtest", raw));
-        assertEquals(1, host.replayChecked.size());
+        assertEquals(display.toString(), within(Duration.ofSeconds(2), () -> backend.broadcast("regtest", raw)));
         assertEquals(1, host.broadcasts.size());
 
-        host.acceptReplay = false;
-        assertEquals(ErrorCode.USER_REJECTED, code(() -> backend.broadcast("regtest", raw)));
-        assertEquals(1, host.broadcasts.size());
-
-        host.acceptReplay = true;
-        host.broadcastError = new Exception("min relay fee not met");
+        host.broadcaster = t -> {
+            throw new PwcException(ErrorCode.TRANSACTION_REJECTED, "min relay fee not met");
+        };
         assertEquals(ErrorCode.TRANSACTION_REJECTED, code(() -> backend.broadcast("regtest", raw)));
+        host.broadcaster = t -> {
+            throw new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The server cannot be reached");
+        };
+        assertEquals(ErrorCode.NETWORK_UNAVAILABLE, code(() -> backend.broadcast("regtest", raw)));
+        host.broadcaster = t -> Sha256Hash.wrap("cd".repeat(32));
+        assertEquals(ErrorCode.TRANSACTION_REJECTED, code(() -> backend.broadcast("regtest", raw)), "the server named another transaction");
+        host.broadcaster = t -> null;
+        assertEquals(ErrorCode.TRANSACTION_REJECTED, code(() -> backend.broadcast("regtest", raw)));
+        host.broadcaster = t -> {
+            throw new IllegalStateException("Service must only be used from the FX Application Thread");
+        };
+        assertEquals(ErrorCode.INTERNAL_ERROR, code(() -> backend.broadcast("regtest", raw)));
 
+        host.broadcaster = null;
         host.connected = false;
         assertEquals(ErrorCode.NETWORK_UNAVAILABLE, code(() -> backend.broadcast("regtest", raw)));
         assertEquals(ErrorCode.NETWORK_MISMATCH, code(() -> backend.broadcast("mainnet", raw)));
+        assertEquals(ErrorCode.INVALID_ARGUMENT, code(() -> backend.broadcast("regtest", new byte[] {1, 2, 3})));
+        assertEquals(1, host.broadcasts.size());
+    }
+
+    @Test
+    void aBroadcastThatDoesNotAnswerInTimeIsNetworkUnavailable() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        host.broadcaster = t -> {
+            try {
+                release.await();
+            } catch(InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return t.getTxId();
+        };
+        try {
+            long start = System.nanoTime();
+            assertEquals(ErrorCode.NETWORK_UNAVAILABLE, code(() -> within(Duration.ofSeconds(2), () -> backend.broadcast("regtest", transaction(1).bitcoinSerialize()))));
+            assertTrue(Duration.ofNanos(System.nanoTime() - start).compareTo(BROADCAST_TIMEOUT) >= 0);
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    void mainnetAndSignetBroadcastOnlyTransactionsClearedInASigningPrompt() throws Exception {
+        for(Network network : List.of(Network.SIGNET, Network.MAINNET)) {
+            Network.set(network);
+            backend = new PwcWalletBackend(host, ids, clock, BROADCAST_TIMEOUT);
+            host.broadcasts.clear();
+            Transaction unsigned = transaction(0x11);
+            byte[] raw = finalized(unsigned).bitcoinSerialize();
+
+            assertEquals(ErrorCode.POLICY_VIOLATION, code(() -> within(Duration.ofSeconds(2), () -> backend.broadcast(network.getName(), raw))),
+                    "a transaction whose replay risk was never cleared in this wallet");
+            assertTrue(host.broadcasts.isEmpty());
+            assertTrue(host.walletThread.isEmpty(), "no dialog is opened");
+
+            backend.replayCleared(unsigned);
+            host.broadcaster = t -> {
+                throw new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The server cannot be reached");
+            };
+            assertEquals(ErrorCode.NETWORK_UNAVAILABLE, code(() -> backend.broadcast(network.getName(), raw)));
+            host.broadcaster = null;
+            assertEquals(unsigned.getTxId().toString(), backend.broadcast(network.getName(), raw), "a failed broadcast keeps the clearance");
+            assertEquals(1, host.broadcasts.size());
+            assertEquals(ErrorCode.POLICY_VIOLATION, code(() -> backend.broadcast(network.getName(), raw)), "the clearance serves one broadcast");
+
+            Transaction otherOutputs = transaction(0x11, 900);
+            backend.replayCleared(unsigned);
+            assertEquals(ErrorCode.POLICY_VIOLATION, code(() -> backend.broadcast(network.getName(), finalized(otherOutputs).bitcoinSerialize())), "another spend of the same inputs");
+
+            clock.advance(PwcWalletBackend.REPLAY_CLEARANCE_LIFETIME.plusSeconds(1));
+            assertEquals(ErrorCode.POLICY_VIOLATION, code(() -> backend.broadcast(network.getName(), raw)), "an expired clearance");
+            assertEquals(1, host.broadcasts.size());
+        }
+    }
+
+    @Test
+    void everyBackendMethodAnswersWhileTheWalletThreadIsBlocked() throws Exception {
+        Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
+        open(wallet);
+        PSBT psbt = twoInputPsbt(wallet);
+        String id = accountId(wallet);
+        Address address = node(wallet, KeyPurpose.RECEIVE, 0).getAddress();
+        BlockTransactionHashIndex utxo = wallet.getWalletUtxos().keySet().iterator().next();
+        OutPoint outPoint = new OutPoint(utxo.getHashAsString(), (int)utxo.getIndex());
+        Duration limit = Duration.ofSeconds(2);
+
+        assertEquals(1, within(limit, backend::wallets).size());
+        assertTrue(within(limit, () -> backend.account(id)).isPresent());
+        assertEquals(200_000, within(limit, () -> backend.balance(id, Set.of())).components().confirmedSats());
+        assertNotNull(within(limit, () -> backend.receiveAddress(id)));
+        assertNotNull(within(limit, () -> backend.createAddress(id, "Blocked")));
+        assertFalse(within(limit, () -> backend.addresses(id)).isEmpty());
+        assertEquals(2, within(limit, () -> backend.utxos(id, Set.of())).size());
+        assertEquals(2, within(limit, () -> backend.transactions(id)).size());
+        assertTrue(within(limit, () -> backend.ownsScript(id, address.getOutputScript().getProgram())));
+        assertTrue(within(limit, () -> backend.isUnspent(id, outPoint)));
+        assertTrue(within(limit, () -> backend.ownedOutput(id, outPoint)).isPresent());
+        assertTrue(within(limit, () -> backend.feeEstimate("regtest", 2)).isPresent());
+        assertNotNull(within(limit, () -> backend.createPsbt(id, new CreateRequest(List.of(new TxOut(10_000, foreignScript().getProgram())), 2_000, null, true), Set.of())));
+        assertEquals(List.of(0, 1), within(limit, () -> backend.signPsbt(id, psbt.serialize(), List.of(0, 1))).signedInputs());
+        assertNotNull(within(limit, () -> backend.signMessage(id, address.getOutputScript().getProgram(), "Blocked", MessageFormat.BIP322_SIMPLE)));
+        assertNotNull(within(limit, () -> backend.broadcast("regtest", transaction(2).bitcoinSerialize())));
+        assertEquals(1, host.walletThread.size(), "only the new address label was handed to the wallet thread, without waiting for it");
+    }
+
+    @Test
+    void theBackendReadsThePublishedViewNotTheLiveWallets() throws Exception {
+        Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
+        open(wallet);
+        BlockTransactionHashIndex first = receive(wallet, node(wallet, KeyPurpose.RECEIVE, 0), 100_000, 900, false);
+        first.setStatus(Status.FROZEN);
+        host.pinned = host.capture();
+
+        receive(wallet, node(wallet, KeyPurpose.RECEIVE, 1), 300_000, 900, false);
+        first.setStatus(null);
+        BalanceComponents pinned = backend.balance(accountId(wallet), Set.of()).components();
+        assertEquals(100_000, pinned.confirmedSats(), "a change after publication is not seen");
+        assertEquals(100_000, pinned.lockedSats(), "the view keeps the frozen status");
+
+        host.pinned = null;
+        BalanceComponents current = backend.balance(accountId(wallet), Set.of()).components();
+        assertEquals(400_000, current.confirmedSats());
+        assertEquals(400_000, current.spendableSats());
+    }
+
+    @Test
+    void aStaleViewNeverHandsOutAnAddressTwice() throws Exception {
+        Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
+        open(wallet);
+        host.pinned = host.capture();
+        String id = accountId(wallet);
+
+        AddressRecord first = backend.createAddress(id, "One");
+        AddressRecord second = backend.createAddress(id, "Two");
+        assertNotEquals(first.address(), second.address());
+        AddressRecord current = backend.receiveAddress(id);
+        assertNotEquals(first.address(), current.address());
+        assertNotEquals(second.address(), current.address());
+
+        host.runWalletThread();
+        host.pinned = null;
+        AddressRecord third = backend.createAddress(id, "Three");
+        assertFalse(List.of(first.address(), second.address()).contains(third.address()));
+        assertEquals("Two", wallet.getWalletAddresses().get(Address.fromString(second.address())).getLabel());
+    }
+
+    @Test
+    void noOtherExceptionThanPwcExceptionReachesTheSdk() throws Exception {
+        Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
+        open(wallet);
+        String id = accountId(wallet);
+        OutPoint outPoint = new OutPoint("ab".repeat(32), 0);
+        byte[] script = foreignScript().getProgram();
+        byte[] psbt = twoInputPsbt(wallet).serialize();
+        byte[] raw = transaction(3).bitcoinSerialize();
+
+        for(Throwable failure : List.of(new IllegalStateException("Service must only be used from the FX Application Thread"), new NoClassDefFoundError("javafx/application/Platform"))) {
+            host.viewFailure = failure;
+            List<Executable> declaring = List.of(() -> backend.balance(id, Set.of()), () -> backend.receiveAddress(id), () -> backend.createAddress(id, null),
+                    () -> backend.utxos(id, Set.of()), () -> backend.transactions(id),
+                    () -> backend.createPsbt(id, new CreateRequest(List.of(new TxOut(10_000, script)), 2_000, null, true), Set.of()),
+                    () -> backend.signPsbt(id, psbt, List.of(0)), () -> backend.signMessage(id, script, "m", MessageFormat.BIP322_SIMPLE),
+                    () -> backend.broadcast("regtest", raw));
+            for(Executable executable : declaring) {
+                assertEquals(ErrorCode.INTERNAL_ERROR, code(executable));
+            }
+            assertEquals(List.of(), backend.wallets());
+            assertTrue(backend.account(id).isEmpty());
+            assertEquals(List.of(), backend.addresses(id));
+            assertFalse(backend.ownsScript(id, script));
+            assertFalse(backend.isUnspent(id, outPoint));
+            assertTrue(backend.ownedOutput(id, outPoint).isEmpty());
+            assertTrue(backend.feeEstimate("regtest", 1).isEmpty());
+        }
     }
 
     @Test
