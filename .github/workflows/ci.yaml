@@ -80,8 +80,12 @@ jobs:
           token: ''
       - name: Check Windows packaging tools and release metadata
         run: |
-          $env:PATH = "$env:WIX\bin;$env:PATH"
-          "$env:WIX\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          # GitHub runners set WIX for each step; Buildkite's runtime does not pass the agent's variable through
+          $wix = if ($env:WIX) { $env:WIX } else { [Environment]::GetEnvironmentVariable('WIX', 'Machine') }
+          if (-not $wix) { throw 'WiX Toolset 3 is not installed (no WIX environment variable)' }
+          $wixBin = Join-Path $wix 'bin'
+          $env:PATH = "$wixBin;$env:PATH"
+          $wixBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           Get-Command candle.exe, light.exe
           $releaseVersion = [regex]::Match((Get-Content build.gradle -Raw), "(?m)^version = '([^']+)'").Groups[1].Value
           if (-not $releaseVersion) { throw 'No project release version found' }

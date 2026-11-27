@@ -83,6 +83,8 @@ class PackagingTest(unittest.TestCase):
     def test_ci_builds_and_installs_the_windows_msi(self):
         workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertIn("./gradlew :test :jpackage", workflow)
+        # Buildkite's GitHub Actions runtime does not pass the agent's WIX variable to steps
+        self.assertIn("[Environment]::GetEnvironmentVariable('WIX', 'Machine')", workflow)
         self.assertIn("puritywallet-${env:RELEASE_VERSION}-windows-x64.msi", workflow)
         self.assertIn("msiexec.exe", workflow)
         self.assertIn("--version", workflow)
