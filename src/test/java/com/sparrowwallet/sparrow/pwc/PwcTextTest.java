@@ -37,7 +37,8 @@ class PwcTextTest {
 
     @Test
     void requestersAreNamedByTheOperatingSystem() {
-        assertEquals("/usr/bin/trader (process 42)", PwcText.application(new PeerInfo(42, Path.of("/usr/bin/trader"))));
+        Path executable = Path.of("/usr/bin/trader");
+        assertEquals(executable + " (process 42)", PwcText.application(new PeerInfo(42, executable)));
         assertEquals("Unknown application (process 42)", PwcText.application(new PeerInfo(42, null)));
         assertEquals("Unknown application", PwcText.application(new PeerInfo(null, null)));
     }
