@@ -119,7 +119,10 @@ class PackagingTest(unittest.TestCase):
     def test_packaged_apps_load_the_pwc_library_from_the_runtime(self):
         workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertIn("runtime\\lib\\pwc_provider_jni.dll", workflow)
-        self.assertIn("cannot determine the endpoint directory", workflow)
+        # On Windows the SDK 0.2.0 demo listens on the named pipe and never exits, so the check must not wait for it
+        self.assertNotIn("cannot determine the endpoint directory", workflow)
+        self.assertNotIn("pwccheck.exe') -Wait", workflow)
+        self.assertIn("Stop-Process -Id $pwccheck.Id", workflow)
         self.assertIn("libpwc_provider_jni.dylib", workflow)
         self.assertIn("pwc-provider listening on", workflow)
         # macOS limits socket paths to 104 bytes, which runner temporary directories can exceed

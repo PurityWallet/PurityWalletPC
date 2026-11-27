@@ -136,10 +136,16 @@ jobs:
           (Get-Content (Join-Path $installDir 'app\puritywallet.cfg')) -replace '^app.mainmodule=.*', 'app.mainmodule=org.bitcoinpurity.pwc.provider/org.bitcoinpurity.pwc.provider.demo.Main' | Set-Content (Join-Path $installDir 'app\pwccheck.cfg')
           $out = Join-Path $env:RUNNER_TEMP 'pwccheck-out.txt'
           $err = Join-Path $env:RUNNER_TEMP 'pwccheck-err.txt'
-          Start-Process (Join-Path $installDir 'pwccheck.exe') -Wait -RedirectStandardOutput $out -RedirectStandardError $err
-          $text = (Get-Content $out -Raw) + (Get-Content $err -Raw)
-          # On Windows the demo has no endpoint directory, which it reports after loading the library
-          if ($text -match 'UnsatisfiedLinkError' -or $text -notmatch 'cannot determine the endpoint directory') {
+          # The demo listens on the user's named pipe until stopped, so wait only for it to report that
+          $pwccheck = Start-Process (Join-Path $installDir 'pwccheck.exe') -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          $text = ''
+          for ($i = 0; $i -lt 60 -and $text -notmatch 'pwc-provider listening on' -and -not $pwccheck.HasExited; $i++) {
+            Start-Sleep -Milliseconds 500
+            $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + (Get-Content $err -Raw -ErrorAction SilentlyContinue)
+          }
+          if (-not $pwccheck.HasExited) { Stop-Process -Id $pwccheck.Id -Force }
+          $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + (Get-Content $err -Raw -ErrorAction SilentlyContinue)
+          if ($text -match 'UnsatisfiedLinkError' -or $text -notmatch 'pwc-provider listening on') {
             Write-Output $text
             throw 'The PWC native library did not load from runtime\lib'
           }
