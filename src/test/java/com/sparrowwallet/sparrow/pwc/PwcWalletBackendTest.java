@@ -18,6 +18,7 @@ import com.sparrowwallet.drongo.wallet.*;
 import com.sparrowwallet.sparrow.io.Storage;
 import com.sparrowwallet.sparrow.wallet.WalletForm;
 import org.bitcoinpurity.pwc.provider.*;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -75,6 +76,13 @@ class PwcWalletBackendTest {
         ids = PwcIds.load(new File(dir, "pwc"));
         clock = new TestClock();
         backend = new PwcWalletBackend(host, ids, clock, BROADCAST_TIMEOUT);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if(backend != null) {
+            backend.close();
+        }
     }
 
     /** Runs the call on another thread and fails if it takes longer than {@code limit}. */
@@ -639,6 +647,7 @@ class PwcWalletBackendTest {
     void mainnetAndSignetBroadcastOnlyTransactionsClearedInASigningPrompt() throws Exception {
         for(Network network : List.of(Network.SIGNET, Network.MAINNET)) {
             Network.set(network);
+            backend.close();
             backend = new PwcWalletBackend(host, ids, clock, BROADCAST_TIMEOUT);
             host.broadcasts.clear();
             Transaction unsigned = transaction(0x11);
