@@ -1,7 +1,7 @@
 <!-- Modified for PurityWallet on 2026-10-27; see LICENSE and NOTICE. -->
 # PurityWallet
 
-Current release version: **1.1.1**.
+Current release version: **1.2.0**.
 
 PurityWallet is a desktop wallet for the **Bitcoin Purity** blockchain, derived from Sparrow Wallet. Its full and short product names are both **PurityWallet**.
 
@@ -32,7 +32,7 @@ On Windows use `puritywallet.bat`. Packaged executables are `puritywallet` / `pu
 
 Distributions are generated under `build/jpackage`. See [build documentation](docs/reproducible.md).
 
-CI builds Windows x64 MSI installers and macOS Apple Silicon / Intel DMGs for PRs targeting `master` and pushes to `master`; manual dispatch is also available. Download installers and SHA-256 files from each successful workflow run's **Artifacts** section in [GitHub Actions](https://github.com/PurityWallet/PurityWalletPC/actions). macOS CI apps use ad hoc signatures without Apple notarization.
+CI builds Windows x64 MSI installers and macOS Apple Silicon DMGs for PRs targeting `master` and pushes to `master`; manual dispatch is also available. Download installers and SHA-256 files from each successful workflow run's **Artifacts** section in [GitHub Actions](https://github.com/PurityWallet/PurityWalletPC/actions). macOS CI apps use ad hoc signatures without Apple notarization.
 
 ## Bitcoin Purity
 

@@ -208,4 +208,4 @@ The updated local arm64 package is `build/macos-release/puritywallet-1.1.1-signe
 
 ## Bundled Java update — 2026-11-22
 
-The packaging JDK is Eclipse Temurin `25.0.5.1+2`. Adoptium reports this release to the pinned `setup-java` action as `25.0.5+100000002.0.LTS`, which selects the exact build for each supported target. Local builds use the matching Adoptium archive. Gradle `9.1.0` and Drongo `13059ebc2979640b30bc1534b4584e2191578672` continue to build the runtime image and application. See [TASK-016](tasks/TASK-016.md) for validation.
+The packaging JDK is Eclipse Temurin `25.0.5.1+2`. Adoptium reports this release to the pinned `setup-java` action as `25.0.5+100000002.0.LTS`, which selects the exact build for each supported target. Local builds use the matching Adoptium archive. Gradle `9.1.0` and Drongo `13059ebc2979640b30bc1534b4584e2191578672` continue to build the runtime image and application. See [TASK-022](tasks/TASK-022.md) for validation.

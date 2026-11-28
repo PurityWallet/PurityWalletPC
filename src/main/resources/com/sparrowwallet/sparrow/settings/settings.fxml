@@ -31,6 +31,14 @@
                     <SettingsGroup fx:constant="SERVER"/>
                 </userData>
             </ToggleButton>
+            <ToggleButton VBox.vgrow="ALWAYS" text="PWC" wrapText="true" textAlignment="CENTER" contentDisplay="TOP" styleClass="list-item" maxHeight="Infinity" toggleGroup="$settingsMenu">
+                <graphic>
+                    <Glyph fontFamily="Font Awesome 5 Free Solid" fontSize="20" icon="LINK" />
+                </graphic>
+                <userData>
+                    <SettingsGroup fx:constant="PWC"/>
+                </userData>
+            </ToggleButton>
         </VBox>
     </left>
     <center>

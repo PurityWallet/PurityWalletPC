@@ -28,6 +28,11 @@ import com.sparrowwallet.drongo.uri.BitcoinURI;
 import com.sparrowwallet.sparrow.control.TrayManager;
 import com.sparrowwallet.sparrow.event.*;
 import com.sparrowwallet.sparrow.io.*;
+import com.sparrowwallet.sparrow.pwc.AppPwcHost;
+import com.sparrowwallet.sparrow.pwc.PwcPromptHandler;
+import com.sparrowwallet.sparrow.pwc.PwcService;
+import com.sparrowwallet.sparrow.pwc.PwcState;
+import com.sparrowwallet.sparrow.wallet.WalletForm;
 import com.sparrowwallet.sparrow.net.*;
 import io.reactivex.rxjavafx.schedulers.JavaFxScheduler;
 import io.reactivex.subjects.PublishSubject;
@@ -131,6 +136,9 @@ public class AppServices {
 
     private ScheduledService<Void> preventSleepService;
 
+    private PwcService pwcService;
+    private AppPwcHost pwcHost;
+
     private static volatile ChainTip announcedTip;
 
     private static volatile boolean systemDarkTheme;
@@ -228,6 +236,13 @@ public class AppServices {
         }
 
         addURIHandlers();
+
+        if(Interface.get() == Interface.DESKTOP) {
+            pwcHost = new AppPwcHost();
+            EventManager.get().register(pwcHost);
+            pwcService = new PwcService(pwcHost, PwcState.getDirectory(), null, PwcService.providerId(Network.get()), PwcPromptHandler::new);
+            setPwcEnabled(config.isPwcEnabled());
+        }
     }
 
     private void restartServices() {
@@ -276,6 +291,8 @@ public class AppServices {
         if(Tor.getDefault() != null) {
             Tor.getDefault().close();
         }
+
+        setPwcEnabled(false);
     }
 
     private ElectrumServer.ConnectionService createConnectionService() {
@@ -488,6 +505,21 @@ public class AppServices {
         return preventSleepService;
     }
 
+    public PwcService getPwcService() {
+        return pwcService;
+    }
+
+    public void setPwcEnabled(boolean enabled) {
+        if(pwcService != null) {
+            if(enabled) {
+                pwcService.start();
+            } else {
+                pwcService.stop();
+            }
+            pwcHost.setActive(pwcService.getStatus() == PwcService.Status.RUNNING);
+        }
+    }
+
     public void setPreventSleep(boolean preventSleep) {
         if(preventSleepService != null) {
             if(preventSleep) {
@@ -691,6 +723,17 @@ public class AppServices {
         }
 
         return openWallets;
+    }
+
+    public List<WalletForm> getOpenWalletForms() {
+        List<WalletForm> walletForms = new ArrayList<>();
+        for(List<WalletTabData> walletTabDataList : walletWindows.values()) {
+            for(WalletTabData walletTabData : walletTabDataList) {
+                walletForms.add(walletTabData.getWalletForm());
+            }
+        }
+
+        return walletForms;
     }
 
     public Wallet getWallet(String walletId) {

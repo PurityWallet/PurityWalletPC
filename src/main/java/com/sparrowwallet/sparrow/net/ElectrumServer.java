@@ -2533,13 +2533,17 @@ public class ElectrumServer {
     }
 
     public Sha256Hash broadcastTransaction(Transaction transaction, Long fee) throws ServerException {
+        return broadcastTransaction(transaction, fee, true);
+    }
+
+    public Sha256Hash broadcastTransaction(Transaction transaction, Long fee, boolean allowExternalSources) throws ServerException {
         //Eagerly populate broadcastedTransactions before broadcasting and roll back on broadcast failure
         Sha256Hash txid = transaction.getTxId();
         BlockTransaction blkTx = new BlockTransaction(txid, 0, null, fee, transaction);
         broadcastedTransactions.put(txid, blkTx);
 
         try {
-            Sha256Hash broadcastTxid = broadcastTransactionPrivately(transaction);
+            Sha256Hash broadcastTxid = allowExternalSources ? broadcastTransactionPrivately(transaction) : broadcastTransaction(transaction);
             if(broadcastTxid == null) {
                 broadcastedTransactions.remove(txid);
             }

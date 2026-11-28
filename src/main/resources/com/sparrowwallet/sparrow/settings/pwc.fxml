@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import tornadofx.control.Form?>
+<?import tornadofx.control.Fieldset?>
+<?import tornadofx.control.Field?>
+<?import javafx.geometry.Insets?>
+<?import com.sparrowwallet.sparrow.control.UnlabeledToggleSwitch?>
+<?import com.sparrowwallet.sparrow.control.HelpLabel?>
+
+<GridPane hgap="10.0" vgap="10.0" stylesheets="@settings.css, @../general.css" xmlns="http://javafx.com/javafx/10.0.2-internal" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.sparrowwallet.sparrow.settings.PwcSettingsController">
+    <padding>
+        <Insets left="25.0" right="25.0" top="25.0" />
+    </padding>
+    <columnConstraints>
+        <ColumnConstraints percentWidth="100" />
+    </columnConstraints>
+    <rowConstraints>
+        <RowConstraints />
+    </rowConstraints>
+
+    <Form GridPane.columnIndex="0" GridPane.rowIndex="0">
+        <Fieldset inputGrow="SOMETIMES" text="Purity Wallet Connect" styleClass="wideLabelFieldSet">
+            <Field text="Allow local apps:">
+                <UnlabeledToggleSwitch fx:id="enabled" />
+                <HelpLabel helpText="Lets applications on this computer pair with PurityWallet. Applications must pair and request access again each time Purity Wallet Connect starts."/>
+            </Field>
+            <Field text="Status:">
+                <Label fx:id="status" wrapText="true" />
+            </Field>
+        </Fieldset>
+        <Fieldset inputGrow="ALWAYS" text="Paired applications">
+            <VBox spacing="8">
+                <TableView fx:id="clients" prefHeight="140" />
+                <HBox spacing="8">
+                    <Button fx:id="unpair" text="Unpair" onAction="#unpair" />
+                    <Button text="Refresh" onAction="#refresh" />
+                </HBox>
+                <Label text="Access granted to the selected application:" />
+                <TableView fx:id="grants" prefHeight="140" />
+                <Button fx:id="revoke" text="Revoke" onAction="#revoke" />
+            </VBox>
+        </Fieldset>
+    </Form>
+</GridPane>
