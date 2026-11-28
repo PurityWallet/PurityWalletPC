@@ -151,3 +151,16 @@ PWC Java Provider SDK 0.2.1 calls the wallet backend without its state lock, so 
 | Host calls | Pairings, grants, revocation, unpairing and state saving stay on the JavaFX thread |
 
 Acceptance: regression tests first, then an end-to-end regtest run with test wallets and the pwc-spec Python client (`pwc-client-ffi`, `try_spend.py` flow): a self-transfer reaches the mempool, and a second application's `account.getBalance` is answered within 2 seconds while the first application's signing prompt is open.
+
+## REQ-018: Upstream Sparrow security sync — adopted
+
+Upstream Sparrow changes after fork point `d61b2a6` are brought in by batches, security fixes first, as cherry-picks that record the upstream commit. The analysis and batch plan are in the migration report.
+
+| Item | Specification |
+|---|---|
+| Kept behaviour | PurityWallet branding, Purity network defaults and header validation, removed fiat, external fee and update services, REQ-011 legacy-chain checks, PWC |
+| Dependencies | drongo and lark sources are not modified; moving their pins is a separate decision, not part of batch 1 |
+| Batch 1 | Tor 0.4.9.5 (`io.matthewnelson.kmp-tor` resources 409.5.0), JavaFX 27.0.1 with the upstream QR camera, macOS save dialog and macOS texture size fixes, Jackson 2.21.8 |
+| Bundled JDK | Updated separately by TASK-022 |
+| Tor 0.4.9.16 | Upstream takes it from resources republished under `com.sparrowwallet`; adopting it needs a separate decision |
+| Acceptance | Strict dependency verification; regression, desktop and packaging tests pass |

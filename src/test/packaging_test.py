@@ -160,6 +160,18 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual("PurityWallet", info["CFBundleName"])
         self.assertEqual("org.bitcoinpurity.puritywallet", info["CFBundleIdentifier"])
 
+    def test_bundled_runtime_libraries_carry_upstream_batch_1(self):
+        """REQ-018 batch 1: Tor 0.4.9.5 from the kmp-tor project, JavaFX 27.0.1 and Jackson 2.21.8."""
+        build = (ROOT / "build.gradle").read_text()
+        self.assertIn("id 'io.matthewnelson.kmp.tor.resource-filterjar' version '409.5.0'", build)
+        self.assertIn('implementation("io.matthewnelson.kmp-tor:resource-exec-tor-gpl:409.5.0")', build)
+        self.assertNotIn("com.sparrowwallet:resource-exec-tor", build)
+        self.assertRegex(build, r'(?m)^javafx \{\n    version = "27\.0\.1"$')
+        self.assertIn("implementation('com.fasterxml.jackson.core:jackson-databind:2.21.8')", build)
+        # With JavaFX 27 the macOS Metal pipeline leaves windows wider than 4096 pixels blank at the default texture limit
+        self.assertEqual(2, build.count('"-Dprism.maxTextureSize=8192"'))
+        self.assertIn('["-Dprism.lcdtext=false", "-Dprism.maxTextureSize=8192", "-Xdock:name=PurityWallet"]', build)
+
     def test_license_and_release_notices(self):
         self.assertIn("Apache License", (ROOT / "LICENSE").read_text())
         self.assertIn("Sparrow", (ROOT / "NOTICE").read_text())

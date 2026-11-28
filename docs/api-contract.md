@@ -44,3 +44,7 @@ Multisignature, nested SegWit, Taproot and silent-payment accounts are not liste
 - PSBTs created for `psbt.create` are version 0, the only version the SDK signs. On mainnet and Purity signet, signing requires explicit replay-risk acknowledgement if input metadata cannot be verified against the previous transaction.
 - Pairing credentials and grants are valid only for the current run of PWC. After a wallet restart or after PWC is turned off and on, clients must call `local.pair` and request grants again.
 - No PWC endpoint is opened on Intel Macs, in terminal mode, or while the switch is off.
+
+## Upstream Sparrow sync (REQ-018)
+- Tor connections use the bundled Tor 0.4.9.5 client, which supports the client protocols the Tor network requires.
+- Batch 1 changes no wallet format, Electrum, Core RPC or PWC interface.
