@@ -28,16 +28,19 @@ class PwcIdsTest {
     @TempDir
     File dir;
 
+    private File pwcDir;
+
     @BeforeEach
     void regtest() {
         Network.set(Network.REGTEST);
+        pwcDir = new File(dir, "pwc");
     }
 
     @Test
     void idsAreStableAcrossLoadsWithTheSameSalt() throws Exception {
         Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
-        PwcIds first = PwcIds.load(dir);
-        PwcIds second = PwcIds.load(dir);
+        PwcIds first = PwcIds.load(pwcDir);
+        PwcIds second = PwcIds.load(pwcDir);
         assertEquals(first.walletId(wallet), second.walletId(wallet));
         assertEquals(first.accountId(wallet), second.accountId(wallet));
     }
@@ -47,14 +50,14 @@ class PwcIdsTest {
         Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
         Wallet renamed = wallet.copy();
         renamed.setName("Renamed");
-        PwcIds ids = PwcIds.load(dir);
+        PwcIds ids = PwcIds.load(pwcDir);
         assertEquals(ids.accountId(wallet), ids.accountId(renamed));
     }
 
     @Test
     void walletAndAccountIdsAreDistinctOpaqueHex() throws Exception {
         Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
-        PwcIds ids = PwcIds.load(dir);
+        PwcIds ids = PwcIds.load(pwcDir);
         String walletId = ids.walletId(wallet);
         String accountId = ids.accountId(wallet);
         assertNotEquals(walletId, accountId);
@@ -67,7 +70,7 @@ class PwcIdsTest {
 
     @Test
     void differentAccountsGetDifferentIds() throws Exception {
-        PwcIds ids = PwcIds.load(dir);
+        PwcIds ids = PwcIds.load(pwcDir);
         assertNotEquals(ids.accountId(PwcTestWallets.software("A", ScriptType.P2WPKH)), ids.accountId(PwcTestWallets.software("B", ScriptType.P2PKH)));
         assertNotEquals(ids.accountId(PwcTestWallets.software("A", ScriptType.P2WPKH)),
                 ids.accountId(PwcTestWallets.software("A", ScriptType.P2WPKH, PwcTestWallets.OTHER_SEED)));
@@ -76,13 +79,12 @@ class PwcIdsTest {
     @Test
     void anotherInstallationCannotLinkTheIds(@TempDir File otherDir) throws Exception {
         Wallet wallet = PwcTestWallets.software("Main", ScriptType.P2WPKH);
-        assertNotEquals(PwcIds.load(dir).accountId(wallet), PwcIds.load(otherDir).accountId(wallet));
+        assertNotEquals(PwcIds.load(pwcDir).accountId(wallet), PwcIds.load(new File(otherDir, "pwc")).accountId(wallet));
     }
 
     @Test
     @DisabledOnOs(OS.WINDOWS)
     void saltIsReadableByTheOwnerOnly() throws Exception {
-        File pwcDir = new File(dir, "pwc");
         PwcIds.load(pwcDir);
         assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(pwcDir.toPath())));
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(new File(pwcDir, PwcIds.SALT_FILE).toPath())));
@@ -92,7 +94,6 @@ class PwcIdsTest {
     @Test
     @EnabledOnOs(OS.WINDOWS)
     void directoryAndSaltAclAllowOnlyTheOwner() throws Exception {
-        File pwcDir = new File(dir, "pwc");
         NTSystem windowsUser = new NTSystem();
         var currentUser = pwcDir.toPath().getFileSystem().getUserPrincipalLookupService()
                 .lookupPrincipalByName(windowsUser.getDomain() + "\\" + windowsUser.getName());
