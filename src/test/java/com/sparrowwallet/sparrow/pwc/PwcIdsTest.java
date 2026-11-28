@@ -4,6 +4,7 @@ import com.sparrowwallet.drongo.Network;
 import com.sparrowwallet.drongo.OutputDescriptor;
 import com.sparrowwallet.drongo.protocol.ScriptType;
 import com.sparrowwallet.drongo.wallet.Wallet;
+import com.sun.security.auth.module.NTSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -13,8 +14,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.EnumSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -88,12 +93,24 @@ class PwcIdsTest {
     @EnabledOnOs(OS.WINDOWS)
     void directoryAndSaltAclAllowOnlyTheOwner() throws Exception {
         File pwcDir = new File(dir, "pwc");
-        PwcIds.load(pwcDir);
+        NTSystem windowsUser = new NTSystem();
+        var currentUser = pwcDir.toPath().getFileSystem().getUserPrincipalLookupService()
+                .lookupPrincipalByName(windowsUser.getDomain() + "\\" + windowsUser.getName());
+        var onlyCurrentUser = AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(currentUser)
+                .setPermissions(EnumSet.allOf(AclEntryPermission.class)).build();
+
+        String oldName = System.setProperty("user.name", "pwc-test-invalid-account");
+        try {
+            PwcIds.load(pwcDir);
+            PwcIds.load(pwcDir);
+        } finally {
+            System.setProperty("user.name", oldName);
+        }
+
         for(var path : List.of(pwcDir.toPath(), pwcDir.toPath().resolve(PwcIds.SALT_FILE))) {
             var acl = Files.getFileAttributeView(path, AclFileAttributeView.class);
-            var owner = acl.getOwner();
-            assertFalse(acl.getAcl().isEmpty());
-            assertTrue(acl.getAcl().stream().allMatch(entry -> entry.principal().equals(owner)));
+            assertEquals(currentUser, acl.getOwner());
+            assertEquals(List.of(onlyCurrentUser), acl.getAcl());
         }
     }
 }

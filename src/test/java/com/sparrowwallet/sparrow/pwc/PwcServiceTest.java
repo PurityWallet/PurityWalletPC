@@ -101,7 +101,7 @@ class PwcServiceTest {
         File pwcDir = new File(dir, "pwc");
         PwcState.createDirectory(pwcDir);
         Path legacy = pwcDir.toPath().resolve(PwcState.LEGACY_SNAPSHOT);
-        Files.createFile(legacy, PwcState.ownerOnly(legacy, false));
+        PwcState.createFile(legacy);
         Files.writeString(legacy, "legacy test snapshot");
         PwcService service = service();
         service.start();

@@ -11,13 +11,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.Set;
 
 /** Opaque PWC wallet and account ids: an HMAC of the output descriptor under a random per-installation salt. */
 public class PwcIds {
@@ -32,10 +32,13 @@ public class PwcIds {
     public static PwcIds load(File dir) throws IOException {
         PwcState.createDirectory(dir);
         Path file = dir.toPath().resolve(SALT_FILE);
+        try {
+            PwcState.createFile(file);
+        } catch(FileAlreadyExistsException e) {
+            PwcState.restrictFile(file);
+        }
         byte[] salt = new byte[32];
-        try(var channel = FileChannel.open(file, Set.of(StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE,
-                LinkOption.NOFOLLOW_LINKS), PwcState.ownerOnly(file, false))) {
-            PwcState.restrict(file, false);
+        try(var channel = FileChannel.open(file, StandardOpenOption.READ, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
             try(var lock = channel.lock()) {
                 ByteBuffer bytes = ByteBuffer.wrap(salt);
                 if(channel.size() == 0) {

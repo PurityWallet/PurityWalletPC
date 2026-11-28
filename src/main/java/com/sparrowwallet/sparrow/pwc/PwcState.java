@@ -1,6 +1,7 @@
 package com.sparrowwallet.sparrow.pwc;
 
 import com.sparrowwallet.sparrow.io.Storage;
+import com.sun.security.auth.module.NTSystem;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,14 +35,18 @@ public class PwcState {
         try {
             Files.createDirectory(path, ownerOnly(path, true));
         } catch(FileAlreadyExistsException e) {
-            if(!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
-                throw e;
-            }
+            restrict(path, true, false);
+            return;
         }
-        restrict(path, true);
+        restrict(path, true, true);
     }
 
-    static FileAttribute<?> ownerOnly(Path path, boolean directory) throws IOException {
+    static void createFile(Path path) throws IOException {
+        Files.createFile(path, ownerOnly(path, false));
+        restrict(path, false, true);
+    }
+
+    private static FileAttribute<?> ownerOnly(Path path, boolean directory) throws IOException {
         if(!PwcService.platform().startsWith("windows")) {
             return PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(directory ? "rwx------" : "rw-------"));
         }
@@ -58,12 +63,21 @@ public class PwcState {
     }
 
     private static List<AclEntry> ownerAcl(Path path) throws IOException {
-        UserPrincipal user = path.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName(System.getProperty("user.name"));
+        NTSystem account = new NTSystem();
+        if(account.getDomain() == null || account.getName() == null || account.getUserSID() == null) {
+            throw new IOException("Could not identify the current Windows account");
+        }
+        UserPrincipal user = path.getFileSystem().getUserPrincipalLookupService()
+                .lookupPrincipalByName(account.getDomain() + "\\" + account.getName());
         return List.of(AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(user)
                 .setPermissions(EnumSet.allOf(AclEntryPermission.class)).build());
     }
 
-    static void restrict(Path path, boolean directory) throws IOException {
+    static void restrictFile(Path path) throws IOException {
+        restrict(path, false, false);
+    }
+
+    private static void restrict(Path path, boolean directory, boolean created) throws IOException {
         boolean expectedType = directory ? Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)
                 : Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS);
         if(!expectedType) {
@@ -71,14 +85,22 @@ public class PwcState {
         }
         if(PwcService.platform().startsWith("windows")) {
             AclFileAttributeView view = Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            if(view == null) {
+                throw new IOException("Windows ACLs are unavailable for PWC state: " + path);
+            }
             List<AclEntry> expected = ownerAcl(path);
-            if(view == null || !view.getOwner().equals(expected.getFirst().principal())) {
+            UserPrincipal user = expected.getFirst().principal();
+            if(!created && !view.getOwner().equals(user)) {
                 throw new IOException("PWC state must be owned by the current user: " + path);
             }
             if(!view.getAcl().equals(expected)) {
                 view.setAcl(expected);
             }
-            if(!view.getAcl().equals(expected)) {
+            // Windows can assign a group from the token as the default owner, even with an owner-only ACL.
+            if(created && !view.getOwner().equals(user)) {
+                view.setOwner(user);
+            }
+            if(!view.getOwner().equals(user) || !view.getAcl().equals(expected)) {
                 throw new IOException("Could not restrict the Windows permissions on " + path);
             }
         } else {
@@ -91,7 +113,7 @@ public class PwcState {
         if(Files.notExists(path, LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
-        restrict(path, false);
+        restrictFile(path);
         Files.move(path, path.resolveSibling(LEGACY_SNAPSHOT + ".retired-" + UUID.randomUUID()), StandardCopyOption.ATOMIC_MOVE);
     }
 }
