@@ -27,3 +27,4 @@ The released base task numbers 001–004 are retained; the mobile donation and i
 - [TASK-018: Report test coverage in CI](TASK-018.md)
 - [TASK-019: Keep the PWC backend free of waits](TASK-019.md)
 - [TASK-020: Limit PWC authorization to the running service](TASK-020.md)
+- [TASK-021: Prepare PurityWallet Desktop 1.2.0](TASK-021.md)
