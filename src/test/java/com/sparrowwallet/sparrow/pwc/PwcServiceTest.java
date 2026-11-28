@@ -4,7 +4,6 @@ import com.sparrowwallet.drongo.Network;
 import org.bitcoinpurity.pwc.provider.EndpointException;
 import org.bitcoinpurity.pwc.provider.Prompt;
 import org.bitcoinpurity.pwc.provider.PromptHandler;
-import org.bitcoinpurity.pwc.provider.StateException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,7 +53,7 @@ class PwcServiceTest {
     }
 
     @Test
-    void endpointAndStateProblemsAreDescribedForTheUser() {
+    void endpointProblemsAreDescribedForTheUser() {
         Path path = Path.of("/run/user/1000/pwc/puritywallet.sock");
         assertTrue(PwcService.describe(EndpointException.Kind.ALREADY_RUNNING, path, "").contains("Another PurityWallet instance"));
         assertTrue(PwcService.describe(EndpointException.Kind.NAME_TAKEN, path, "").contains("Another program"));
@@ -64,13 +63,11 @@ class PwcServiceTest {
         for(EndpointException.Kind kind : EndpointException.Kind.values()) {
             assertTrue(PwcService.describe(kind, path, "").contains(path.toString()), kind.name());
         }
-        assertTrue(PwcService.describe(StateException.Kind.CORRUPT, new File("kept")).contains("could not be read"));
-        assertTrue(PwcService.describe(StateException.Kind.UNSUPPORTED_VERSION, new File("kept")).contains("newer version"));
     }
 
     @Test
     @EnabledIf("com.sparrowwallet.sparrow.pwc.PwcPlatform#hasNativeLibrary")
-    void startsListensAndSavesItsStateOnStop() throws Exception {
+    void startsAndStopsWithoutSavingAuthorizationState() {
         PwcService service = service();
         service.start();
         assertEquals(PwcService.Status.RUNNING, service.getStatus(), service.getMessage());
@@ -81,11 +78,11 @@ class PwcServiceTest {
         service.stop();
         assertEquals(PwcService.Status.STOPPED, service.getStatus());
         assertNull(service.getEndpoint());
-        assertTrue(new File(dir, "pwc/" + PwcState.STATE_FILE).isFile());
+        assertArrayEquals(new String[] {PwcIds.SALT_FILE}, new File(dir, "pwc").list());
 
         service.start();
         assertEquals(PwcService.Status.RUNNING, service.getStatus(), service.getMessage());
-        assertNull(service.getMessage(), "the saved snapshot loads back");
+        assertNull(service.getMessage());
     }
 
     @Test
@@ -100,16 +97,23 @@ class PwcServiceTest {
 
     @Test
     @EnabledIf("com.sparrowwallet.sparrow.pwc.PwcPlatform#hasNativeLibrary")
-    void aCorruptSnapshotIsKeptAsideAndPwcStartsFresh() throws Exception {
+    void aLegacySnapshotIsRetiredAndPwcStartsFresh() throws Exception {
         File pwcDir = new File(dir, "pwc");
-        new PwcState(pwcDir).save("not a snapshot".getBytes());
+        PwcState.createDirectory(pwcDir);
+        Path legacy = pwcDir.toPath().resolve(PwcState.LEGACY_SNAPSHOT);
+        PwcState.createFile(legacy);
+        Files.writeString(legacy, "legacy test snapshot");
         PwcService service = service();
         service.start();
-        assertEquals(PwcService.Status.RUNNING, service.getStatus());
-        assertTrue(service.getMessage().contains("could not be read"), service.getMessage());
-        File[] kept = pwcDir.listFiles((d, name) -> name.startsWith(PwcState.STATE_FILE + ".corrupt-"));
+        assertEquals(PwcService.Status.RUNNING, service.getStatus(), service.getMessage());
+        assertTrue(service.pairedClients().isEmpty());
+        assertTrue(service.grants().isEmpty());
+        assertFalse(Files.exists(legacy));
+        File[] kept = pwcDir.listFiles((d, name) -> name.startsWith(PwcState.LEGACY_SNAPSHOT + ".retired-"));
         assertEquals(1, kept.length);
-        assertEquals("not a snapshot", Files.readString(kept[0].toPath()));
+        assertEquals("legacy test snapshot", Files.readString(kept[0].toPath()));
+        service.stop();
+        assertFalse(Files.exists(legacy));
     }
 
     @Test

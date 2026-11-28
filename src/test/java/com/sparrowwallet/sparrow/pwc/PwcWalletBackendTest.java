@@ -18,6 +18,7 @@ import com.sparrowwallet.drongo.wallet.*;
 import com.sparrowwallet.sparrow.io.Storage;
 import com.sparrowwallet.sparrow.wallet.WalletForm;
 import org.bitcoinpurity.pwc.provider.*;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -75,6 +76,13 @@ class PwcWalletBackendTest {
         ids = PwcIds.load(new File(dir, "pwc"));
         clock = new TestClock();
         backend = new PwcWalletBackend(host, ids, clock, BROADCAST_TIMEOUT);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if(backend != null) {
+            backend.close();
+        }
     }
 
     /** Runs the call on another thread and fails if it takes longer than {@code limit}. */
@@ -455,6 +463,24 @@ class PwcWalletBackendTest {
         assertEquals(ErrorCode.SIGNER_UNAVAILABLE, code(() -> backend.signPsbt(accountId(wallet), psbt.serialize(), List.of(0, 1))));
     }
 
+    @Test
+    void unusedApprovalsAreClearedAtExpiryAndOnClose() {
+        Wallet expired = PwcTestWallets.software("Expired", ScriptType.P2WPKH);
+        backend.unlocked("expired", "message", expired);
+        clock.advance(PwcWalletBackend.APPROVAL_LIFETIME);
+        backend.expireApprovals();
+        assertTrue(isCleared(expired));
+
+        Wallet pending = PwcTestWallets.software("Pending", ScriptType.P2WPKH);
+        backend.unlocked("pending", "message", pending);
+        backend.close();
+        assertTrue(isCleared(pending));
+
+        Wallet late = PwcTestWallets.software("Late", ScriptType.P2WPKH);
+        backend.unlocked("late", "message", late);
+        assertTrue(isCleared(late));
+    }
+
     private static Wallet decrypted(Wallet encrypted) {
         Wallet copy = encrypted.copy();
         copy.decrypt("pass");
@@ -621,6 +647,7 @@ class PwcWalletBackendTest {
     void mainnetAndSignetBroadcastOnlyTransactionsClearedInASigningPrompt() throws Exception {
         for(Network network : List.of(Network.SIGNET, Network.MAINNET)) {
             Network.set(network);
+            backend.close();
             backend = new PwcWalletBackend(host, ids, clock, BROADCAST_TIMEOUT);
             host.broadcasts.clear();
             Transaction unsigned = transaction(0x11);

@@ -2,6 +2,7 @@ open module com.sparrowwallet.sparrow {
     requires java.desktop;
     requires java.net.http;
     requires java.sql;
+    requires jdk.security.auth;
     requires javafx.base;
     requires javafx.controls;
     requires javafx.fxml;

@@ -57,7 +57,7 @@ public class PwcSettingsController extends SettingsDetailController {
         grants.setPlaceholder(new Label("No access granted"));
         grants.getColumns().add(column("Allowed", grant -> String.join(", ", grant.scopes())));
         grants.getColumns().add(column("Accounts", this::resources));
-        grants.getColumns().add(column("Expires", grant -> grant.expiresAt() == null ? "Never" : date(grant.expiresAt())));
+        grants.getColumns().add(column("Expires", grant -> grant.expiresAt() == null ? "Until PWC stops" : date(grant.expiresAt())));
         grants.getColumns().add(column("Limit (sat)", grant -> grant.constraints() == null || grant.constraints().maxAmountSatsPerRequest() == null ? "None"
                 : String.format(Locale.ROOT, "%,d", grant.constraints().maxAmountSatsPerRequest())));
         grants.getColumns().add(column("Status", grant -> grant.status().name().toLowerCase(Locale.ROOT)));

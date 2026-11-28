@@ -137,6 +137,7 @@ public class AppServices {
     private ScheduledService<Void> preventSleepService;
 
     private PwcService pwcService;
+    private AppPwcHost pwcHost;
 
     private static volatile ChainTip announcedTip;
 
@@ -237,13 +238,10 @@ public class AppServices {
         addURIHandlers();
 
         if(Interface.get() == Interface.DESKTOP) {
-            AppPwcHost pwcHost = new AppPwcHost();
+            pwcHost = new AppPwcHost();
             EventManager.get().register(pwcHost);
-            pwcHost.publishSoon();
             pwcService = new PwcService(pwcHost, PwcState.getDirectory(), null, PwcService.providerId(Network.get()), PwcPromptHandler::new);
-            if(config.isPwcEnabled()) {
-                pwcService.start();
-            }
+            setPwcEnabled(config.isPwcEnabled());
         }
     }
 
@@ -294,9 +292,7 @@ public class AppServices {
             Tor.getDefault().close();
         }
 
-        if(pwcService != null) {
-            pwcService.stop();
-        }
+        setPwcEnabled(false);
     }
 
     private ElectrumServer.ConnectionService createConnectionService() {
@@ -520,6 +516,7 @@ public class AppServices {
             } else {
                 pwcService.stop();
             }
+            pwcHost.setActive(pwcService.getStatus() == PwcService.Status.RUNNING);
         }
     }
 

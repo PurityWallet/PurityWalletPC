@@ -20,6 +20,7 @@ import org.bitcoinpurity.pwc.provider.ScriptType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -91,7 +92,8 @@ public class PwcWalletBackend implements WalletBackend {
     private final PwcIds ids;
     private final Clock clock;
     private final Duration broadcastTimeout;
-    private final Map<String, Approval> approvals = new ConcurrentHashMap<>();
+    private final Map<String, Approval> approvals = new HashMap<>();
+    private volatile boolean closed;
     private final Map<String, Instant> replayClearances = new ConcurrentHashMap<>();
     private final Map<String, Set<Integer>> handedOut = new ConcurrentHashMap<>();
     private final ExecutorService broadcaster = Executors.newCachedThreadPool(runnable -> {
@@ -99,7 +101,7 @@ public class PwcWalletBackend implements WalletBackend {
         thread.setDaemon(true);
         return thread;
     });
-    private volatile Entries entries;
+    private volatile WeakReference<Entries> entries = new WeakReference<>(null);
 
     public PwcWalletBackend(PwcHost host, PwcIds ids) {
         this(host, ids, Clock.systemUTC(), BROADCAST_TIMEOUT);
@@ -125,7 +127,11 @@ public class PwcWalletBackend implements WalletBackend {
         return "message:" + format + ":" + address + ":" + Utils.bytesToHex(Sha256Hash.hash(message.getBytes(StandardCharsets.UTF_8)));
     }
 
-    private void keep(String accountId, Approval approval) {
+    private synchronized void keep(String accountId, Approval approval) {
+        if(closed) {
+            approval.clear();
+            return;
+        }
         Approval previous = approvals.put(accountId, approval);
         if(previous != null) {
             previous.clear();
@@ -142,20 +148,44 @@ public class PwcWalletBackend implements WalletBackend {
         keep(accountId, new Approval(subject, clock.instant().plus(APPROVAL_LIFETIME), null, signed));
     }
 
-    public void discardApproval(String accountId) {
+    public synchronized void discardApproval(String accountId) {
         Approval previous = approvals.remove(accountId);
         if(previous != null) {
             previous.clear();
         }
     }
 
+    synchronized void expireApprovals() {
+        Instant now = clock.instant();
+        approvals.values().removeIf(approval -> {
+            if(now.isBefore(approval.expires())) {
+                return false;
+            }
+            approval.clear();
+            return true;
+        });
+    }
+
+    boolean isClosed() {
+        return closed;
+    }
+
+    synchronized void close() {
+        closed = true;
+        approvals.values().forEach(Approval::clear);
+        approvals.clear();
+        replayClearances.clear();
+        entries.clear();
+        broadcaster.shutdownNow();
+    }
+
     /** Takes the account's approval once; one for another subject, or expired, is cleared and refused. */
-    private Approval take(String accountId, String subject) throws PwcException {
+    private synchronized Approval take(String accountId, String subject) throws PwcException {
         Approval approval = approvals.remove(accountId);
         if(approval == null) {
             return null;
         }
-        if(!approval.subject().equals(subject) || clock.instant().isAfter(approval.expires())) {
+        if(!approval.subject().equals(subject) || !clock.instant().isBefore(approval.expires())) {
             approval.clear();
             throw new PwcException(ErrorCode.SIGNER_UNAVAILABLE, "The approval given in the wallet does not cover this request");
         }
@@ -175,7 +205,10 @@ public class PwcWalletBackend implements WalletBackend {
     }
 
     /** Records that the signing prompt found no shared input or that the user acknowledged the replay risk of this transaction (REQ-011). */
-    public void replayCleared(Transaction transaction) {
+    public synchronized void replayCleared(Transaction transaction) {
+        if(closed) {
+            return;
+        }
         Instant now = clock.instant();
         replayClearances.values().removeIf(expires -> now.isAfter(expires));
         replayClearances.put(replayKey(transaction), now.plus(REPLAY_CLEARANCE_LIFETIME));
@@ -250,11 +283,11 @@ public class PwcWalletBackend implements WalletBackend {
 
     /** The entries of the current view, derived once per published view. */
     private Entries entries() {
-        PwcView view = host.view();
-        Entries current = entries;
+        PwcView view = closed ? PwcView.EMPTY : host.view();
+        Entries current = entries.get();
         if(current == null || current.view() != view) {
             current = new Entries(view, describe(view, ids));
-            entries = current;
+            entries = new WeakReference<>(current);
         }
         return current;
     }
@@ -480,20 +513,18 @@ public class PwcWalletBackend implements WalletBackend {
         return guard("transactions", () -> withAccount(accountId, (account, wallet, view) -> {
             Wallet accountWallet = account.wallet();
             Integer tip = tip(view, accountWallet);
-            Set<BlockTransactionHashIndex> txos = accountWallet.getWalletTxos().keySet();
+            Map<Sha256Hash, Long> netByTxid = new HashMap<>();
+            for(BlockTransactionHashIndex reference : accountWallet.getWalletTxos().keySet()) {
+                netByTxid.merge(reference.getHash(), reference.getValue(), Long::sum);
+                if(reference.getSpentBy() != null) {
+                    netByTxid.merge(reference.getSpentBy().getHash(), -reference.getValue(), Long::sum);
+                }
+            }
             List<BlockTransaction> blockTransactions = new ArrayList<>(accountWallet.getWalletTransactions().values());
             blockTransactions.sort(Comparator.comparingInt((BlockTransaction tx) -> tx.getHeight() > 0 ? tx.getHeight() : Integer.MAX_VALUE).reversed());
             List<TransactionRecord> records = new ArrayList<>();
             for(BlockTransaction blockTransaction : blockTransactions) {
-                long net = 0;
-                for(BlockTransactionHashIndex reference : txos) {
-                    if(reference.getHash().equals(blockTransaction.getHash())) {
-                        net += reference.getValue();
-                    }
-                    if(reference.getSpentBy() != null && reference.getSpentBy().getHash().equals(blockTransaction.getHash())) {
-                        net -= reference.getValue();
-                    }
-                }
+                long net = netByTxid.getOrDefault(blockTransaction.getHash(), 0L);
                 int confirmations = confirmations(blockTransaction, tip);
                 boolean confirmed = confirmations > 0;
                 records.add(new TransactionRecord(accountId, network(), blockTransaction.getHashAsString(),
@@ -812,7 +843,7 @@ public class PwcWalletBackend implements WalletBackend {
             } catch(Exception e) {
                 throw new PwcException(ErrorCode.INVALID_ARGUMENT, "The transaction cannot be parsed");
             }
-            if(!host.view().connected()) {
+            if(closed || !host.view().connected()) {
                 throw new PwcException(ErrorCode.NETWORK_UNAVAILABLE, "The wallet is not connected to a server");
             }
             String key = replayKey(transaction);

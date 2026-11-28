@@ -18,6 +18,6 @@ class PwcPairingDialog extends PwcPromptDialog {
         Label codeLabel = new Label(code.length() == 6 ? code.substring(0, 3) + " " + code.substring(3) : code);
         codeLabel.setStyle("-fx-font-size: 32px; -fx-font-family: monospace; -fx-font-weight: bold");
         add(codeLabel);
-        note("Pairing shares no wallet data. The application must ask separately for each kind of access.");
+        note("Pairing shares no wallet data. The application must ask separately for access and pair again when PWC restarts.");
     }
 }

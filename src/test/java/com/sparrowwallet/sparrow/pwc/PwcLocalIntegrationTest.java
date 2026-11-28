@@ -113,10 +113,19 @@ class PwcLocalIntegrationTest {
 
             service.stop();
             service.start();
+            assertEquals(PwcService.Status.RUNNING, service.getStatus(), service.getMessage());
+            assertTrue(service.pairedClients().isEmpty());
+            assertTrue(service.grants().isEmpty());
+            assertEquals(accountId, backend.get().getIds().accountId(wallet));
             try(LocalTestClient client = LocalTestClient.connect(service.getEndpoint())) {
                 client.hello();
-                client.authenticate(credentials);
-                assertEquals(1, client.call("wallet.list", Map.of()).get("wallets").size(), "pairing and grant survive a restart");
+                assertThrows(LocalTestClient.RpcError.class, () -> client.authenticate(credentials));
+            }
+            try(LocalTestClient client = LocalTestClient.connect(service.getEndpoint())) {
+                client.hello();
+                client.pair("Integration Test", "246810");
+                LocalTestClient.RpcError denied = assertThrows(LocalTestClient.RpcError.class, () -> client.call("wallet.list", Map.of()));
+                assertEquals("PERMISSION_REQUIRED", denied.code);
             }
         } finally {
             service.stop();

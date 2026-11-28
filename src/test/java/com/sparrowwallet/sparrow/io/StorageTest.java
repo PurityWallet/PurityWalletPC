@@ -49,15 +49,13 @@ public class StorageTest extends IoTest {
     @Test
     public void loadWallet() throws IOException, MnemonicException, StorageException {
         System.setProperty(Wallet.ALLOW_DERIVATIONS_MATCHING_OTHER_NETWORKS_PROPERTY, "true");
-        Storage storage = new Storage(getFile("sparrow-single-wallet"));
-        Wallet wallet = storage.loadEncryptedWallet("pass").getWallet();
+        Wallet wallet = loadEncryptedWallet(getFile("sparrow-single-wallet")).getWallet();
         Assertions.assertTrue(wallet.isValid());
     }
 
     @Test
     public void loadSeedWallet() throws IOException, MnemonicException, StorageException {
-        Storage storage = new Storage(getFile("sparrow-single-seed-wallet"));
-        WalletAndKey walletAndKey = storage.loadEncryptedWallet("pass");
+        WalletAndKey walletAndKey = loadEncryptedWallet(getFile("sparrow-single-seed-wallet"));
         Wallet wallet = walletAndKey.getWallet();
         Wallet copy = wallet.copy();
         copy.decrypt(walletAndKey.getKey());
@@ -99,21 +97,32 @@ public class StorageTest extends IoTest {
     @Test
     public void saveWallet() throws IOException, MnemonicException, StorageException {
         System.setProperty(Wallet.ALLOW_DERIVATIONS_MATCHING_OTHER_NETWORKS_PROPERTY, "true");
-        Storage storage = new Storage(getFile("sparrow-single-wallet"));
-        Wallet wallet = storage.loadEncryptedWallet("pass").getWallet();
-        Assertions.assertTrue(wallet.isValid());
-
         File tempWallet = File.createTempFile("sparrow", "tmp");
         tempWallet.deleteOnExit();
 
-        Storage tempStorage = new Storage(tempWallet);
-        tempStorage.setKeyDeriver(storage.getKeyDeriver());
-        tempStorage.setEncryptionPubKey(storage.getEncryptionPubKey());
-        tempStorage.saveWallet(wallet);
+        Storage source = new Storage(getFile("sparrow-single-wallet"));
+        Storage target = new Storage(tempWallet);
+        try {
+            Wallet wallet = source.loadEncryptedWallet("pass").getWallet();
+            Assertions.assertTrue(wallet.isValid());
+            target.setKeyDeriver(source.getKeyDeriver());
+            target.setEncryptionPubKey(source.getEncryptionPubKey());
+            target.saveWallet(wallet);
+        } finally {
+            target.closeAndWait();
+            source.closeAndWait();
+        }
 
-        Storage temp2Storage = new Storage(tempWallet);
-        wallet = temp2Storage.loadEncryptedWallet("pass").getWallet();
-        Assertions.assertTrue(wallet.isValid());
+        Assertions.assertTrue(loadEncryptedWallet(tempWallet).getWallet().isValid());
+    }
+
+    private WalletAndKey loadEncryptedWallet(File walletFile) throws IOException, StorageException {
+        Storage storage = new Storage(walletFile);
+        try {
+            return storage.loadEncryptedWallet("pass");
+        } finally {
+            storage.closeAndWait();
+        }
     }
 
     @Test

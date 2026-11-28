@@ -2,8 +2,13 @@ package com.sparrowwallet.sparrow.pwc;
 
 import com.sparrowwallet.drongo.SecureString;
 import com.sparrowwallet.drongo.address.Address;
+import com.sparrowwallet.drongo.Utils;
+import com.sparrowwallet.drongo.protocol.Sha256Hash;
 import com.sparrowwallet.drongo.protocol.Transaction;
+import com.sparrowwallet.drongo.protocol.TransactionOutPoint;
+import com.sparrowwallet.drongo.protocol.TransactionOutput;
 import com.sparrowwallet.drongo.psbt.PSBT;
+import com.sparrowwallet.drongo.wallet.BlockTransaction;
 import com.sparrowwallet.drongo.wallet.Keystore;
 import com.sparrowwallet.drongo.wallet.Wallet;
 import com.sparrowwallet.sparrow.AppServices;
@@ -25,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -84,7 +90,12 @@ public class PwcPromptHandler implements PromptHandler {
         CompletableFuture<Void> done = new CompletableFuture<>();
         Platform.runLater(() -> {
             try {
-                show(prompt, done);
+                if(backend.isClosed() || prompt.isWithdrawn()) {
+                    answer(prompt::reject);
+                    done.complete(null);
+                } else {
+                    show(prompt, done);
+                }
             } catch(Throwable e) {
                 log.error("Could not show a PWC prompt", e);
                 answer(prompt::reject);
@@ -136,7 +147,6 @@ public class PwcPromptHandler implements PromptHandler {
         switch(prompt) {
             case PairingPrompt pairing -> decide(new PwcPairingDialog(pairing.request(), pairing::isWithdrawn), pairing, () -> {
                 answer(pairing::approve);
-                service.saveSoon();
                 done.complete(null);
             }, done);
             case PermissionPrompt permission -> {
@@ -144,7 +154,6 @@ public class PwcPromptHandler implements PromptHandler {
                         offeredAccounts(permission.request(), backend.wallets(), backend), permission::isWithdrawn);
                 decide(dialog, permission, () -> {
                     answer(() -> permission.grant(dialog.choice()));
-                    service.saveSoon();
                     done.complete(null);
                 }, done);
             }
@@ -167,7 +176,8 @@ public class PwcPromptHandler implements PromptHandler {
             dialog.initOwner(owner);
         }
         boolean approve = dialog.showAndWait().orElse(false);
-        if(dialog.isWithdrawn()) {
+        if(dialog.isWithdrawn() || prompt.isWithdrawn() || backend.isClosed()) {
+            answer(prompt::reject);
             done.complete(null);
         } else if(approve) {
             approved.run();
@@ -202,7 +212,7 @@ public class PwcPromptHandler implements PromptHandler {
         try {
             PSBT psbt = new PSBT(prompt.request().psbt());
             transaction = psbt.getTransaction();
-            inputs = LegacyUtxoChecker.inputs(transaction, psbt, form.getWallet(), form.getWallet().getWalletTransactions());
+            inputs = replayInputs(psbt, form.getWallet().getWalletTransactions());
         } catch(Exception e) {
             log.warn("Could not read the PWC PSBT for the replay check", e);
             answer(prompt::reject);
@@ -216,13 +226,30 @@ public class PwcPromptHandler implements PromptHandler {
         String subject = PwcWalletBackend.psbtSubject(prompt.request().psbt(), prompt.request().inputsToSign());
         Runnable sign = backend.signsWithDevice(accountId) ? () -> signOnDeviceThenApprove(prompt, accountId, subject, approve, done)
                 : () -> unlockThenApprove(prompt, accountId, subject, approve, done);
-        replayGuard.check(inputs, () -> !prompt.isWithdrawn(), new Button(), sign)
+        replayGuard.check(inputs, () -> !prompt.isWithdrawn() && !backend.isClosed(), new Button(), sign)
                 .thenAccept(continued -> {
                     if(!continued) {
                         answer(prompt::reject);
                         done.complete(null);
                     }
                 });
+    }
+
+    static List<LegacyUtxoChecker.Utxo> replayInputs(PSBT psbt, Map<Sha256Hash, BlockTransaction> history) {
+        List<LegacyUtxoChecker.Utxo> inputs = new ArrayList<>();
+        for(int i = 0; i < psbt.getTransaction().getInputs().size(); i++) {
+            TransactionOutPoint outpoint = psbt.getTransaction().getInputs().get(i).getOutpoint();
+            BlockTransaction known = history.get(outpoint.getHash());
+            Transaction previous = known == null ? null : known.getTransaction();
+            if(previous == null || !outpoint.getHash().equals(previous.getTxId())) {
+                previous = psbt.getPsbtInputs().get(i).getNonWitnessUtxo();
+            }
+            TransactionOutput output = previous != null && outpoint.getHash().equals(previous.getTxId())
+                    && outpoint.getIndex() < previous.getOutputs().size() ? previous.getOutputs().get((int)outpoint.getIndex()) : null;
+            inputs.add(new LegacyUtxoChecker.Utxo(outpoint.getHash().toString(), outpoint.getIndex(), output == null ? -1 : output.getValue(),
+                    output == null ? null : Utils.bytesToHex(output.getScriptBytes())));
+        }
+        return inputs;
     }
 
     /** The device confirmation is part of the prompt flow, so that {@code signPsbt} never waits for the user (REQ-017). */
@@ -241,7 +268,8 @@ public class PwcPromptHandler implements PromptHandler {
                 signed = null;
             }
         }
-        if(prompt.isWithdrawn()) {
+        if(prompt.isWithdrawn() || backend.isClosed()) {
+            answer(prompt::reject);
             done.complete(null);
             return;
         }
@@ -280,17 +308,24 @@ public class PwcPromptHandler implements PromptHandler {
             passwordDialog.initOwner(owner);
         }
         Optional<SecureString> password = passwordDialog.showAndWait();
-        if(password.isEmpty() || prompt.isWithdrawn()) {
+        if(password.isEmpty() || prompt.isWithdrawn() || backend.isClosed()) {
+            password.ifPresent(SecureString::clear);
             answer(prompt::reject);
             done.complete(null);
             return;
         }
         Storage.DecryptWalletService decryptWalletService = new Storage.DecryptWalletService(copy, password.get());
         decryptWalletService.setOnSucceeded(event -> {
-            backend.unlocked(accountId, subject, decryptWalletService.getValue());
-            answer(approve);
-            if(prompt.isWithdrawn()) {
-                backend.discardApproval(accountId);
+            Wallet decrypted = decryptWalletService.getValue();
+            if(prompt.isWithdrawn() || backend.isClosed()) {
+                decrypted.clearPrivate();
+                answer(prompt::reject);
+            } else {
+                backend.unlocked(accountId, subject, decrypted);
+                answer(approve);
+                if(prompt.isWithdrawn()) {
+                    backend.discardApproval(accountId);
+                }
             }
             done.complete(null);
         });
