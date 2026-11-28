@@ -2,6 +2,7 @@ import pathlib
 import hashlib
 import struct
 import plistlib
+import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -37,6 +38,18 @@ class PackagingTest(unittest.TestCase):
         self.assertIn('imageName = "puritywallet"', build)
         self.assertNotIn("Craig Raw (UPLVMSK9D7)", build)
 
+    def test_builds_pin_the_exact_temurin_release(self):
+        for path, java_steps in (
+            (".github/workflows/ci.yaml", 3),
+            (".github/workflows/package.yaml", 1),
+            (".github/actions/update-gradle-verification/action.yaml", 1),
+        ):
+            with self.subTest(path=path):
+                config = (ROOT / path).read_text()
+                self.assertEqual(java_steps, config.count("uses: actions/setup-java@"))
+                self.assertEqual(["temurin"] * java_steps, re.findall(r"(?m)^ +distribution: '?([^'\n]+)'?$", config))
+                self.assertEqual(["25.0.5+100000002.0.LTS"] * java_steps, re.findall(r"(?m)^ +java-version: '([^']+)'", config))
+
     def test_ci_is_one_workflow_with_three_jobs(self):
         """REQ-015: one workflow, so a CI service that runs one workflow per build covers every check."""
         for name in ["test.yaml", "windows-package.yaml", "macos-package.yaml"]:
@@ -69,7 +82,6 @@ class PackagingTest(unittest.TestCase):
     def test_ci_tests_include_desktop_and_isolated_data(self):
         workflow = (ROOT / ".github/workflows/ci.yaml").read_text()
         self.assertIn("submodules: recursive", workflow)
-        self.assertIn("java-version: '25.0.2'", workflow)
         self.assertIn("python3 src/test/packaging_test.py", workflow)
         self.assertIn("xvfb-run --auto-servernum ./gradlew :test :desktopTest", workflow)
         # Ubuntu 24.04 self-hosted agents name the GTK and ALSA runtimes with a t64 suffix

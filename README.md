@@ -10,7 +10,7 @@ Source and releases: [PurityWallet/PurityWalletPC](https://github.com/PurityWall
 
 ## Build and run
 
-Use Eclipse Temurin **25.0.2+10** (the release JDK), with `JAVA_HOME` pointing to it.
+Use Eclipse Temurin **25.0.5.1+2** (the release JDK), with `JAVA_HOME` pointing to it.
 
 ```sh
 git clone --recursive https://github.com/PurityWallet/PurityWalletPC.git

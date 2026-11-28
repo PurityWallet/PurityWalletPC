@@ -20,6 +20,8 @@ All project documentation is written in English.
 
 The application, Gradle archives and native package metadata all use version `1.2.0`. jpackage uses the Gradle version directly; macOS bundle version fields use the same numeric value.
 
+Release builds use Eclipse Temurin `25.0.5.1+2` as the JDK for jlink and jpackage. The linked Temurin runtime ships with each PurityWallet distribution.
+
 PR CI is one workflow, `.github/workflows/ci.yaml`, with `tests` (Linux, with Xvfb for JavaFX), `windows-installer` and `macos-dmg` jobs (REQ-015). It runs for PRs targeting master and pushes to master, with manual dispatch retained, and one build of a CI service that runs a single workflow covers every check. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Each job also runs the JaCoCo coverage report for the `:test` suite, without the interface-only and hardware card driver packages, prints its line and branch coverage, and uploads it (REQ-016). Test reports and installer checksums are uploaded as CI artifacts; no release is published.
 
 The `macos-dmg` job runs independently of the Windows job on a native `macos-15` runner and builds the Apple Silicon application with the pinned JDK; CI builds no Intel DMG. Gradle produces the app image; `hdiutil` wraps an ad hoc signed copy and an Applications shortcut in a compressed DMG. Mounted-image checks precede artifact upload. This job uses no Apple signing credentials and performs no notarization or release publication.
