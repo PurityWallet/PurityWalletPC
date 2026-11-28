@@ -239,6 +239,17 @@ All checks ran in a temporary worktree; no project branch was changed.
 | 5 | Server robustness and SPV | Requires `:verifyCheckpoint`; `ebf0484` keeps `puritywallet.log` |
 | 6 | Other fixes and accessibility | Accessibility commits depend on each other; bring them in order |
 
+### Batch 1 results — 2026-11-28
+Built with Temurin 25.0.2+10 (the JDK update stays with TASK-022), Gradle 9.1.0, and the locked drongo `13059eb` and lark `fdcf5a0`. See [TASK-023](tasks/TASK-023.md).
+
+- Cherry-picked `21b4032`, `8ea8e30`, `f13a4d9`, `999a823`, `e840d47`, `2ce667d`, `d0b648d` and `114389b`, keeping upstream authorship and the `cherry picked from` lines. Adaptations: `999a823` leaves out its lark pin change; `2ce667d` keeps the Jackson 2.21.1 entries that the locked lark revision needs; `d0b648d` keeps the PurityWallet dock name; `114389b` adds the `java.util.stream.Stream` import that upstream added in an earlier commit.
+- The new packaging check failed before the cherry-picks and passes after them. All 21 packaging checks pass.
+- Under strict dependency verification and a UTF-8 locale, `xvfb-run ./gradlew :test :desktopTest` passed 441 regression tests (2 platform-specific skips) and 17 desktop tests. Maven Central rate-limited this environment, so a Gradle init script read Maven Central through Google's mirror (`maven-central.storage-download.googleapis.com`). Every artifact was still checked against `gradle/verification-metadata.xml`.
+- The runtime classpath resolves every Jackson module to 2.21.8, including lark's 2.21.1 request.
+- In the verified `resource-lib-tor-gpl-jvm-409.5.0` jar, the Tor libraries for Linux x86_64, macOS arm64 and Windows x64 all carry the version string `0.4.9.5`. The string was read without running the libraries.
+- `:jpackageImage` built the Linux x86_64 app image. Its runtime contains JavaFX 27.0.1+5 and only the linux-libc/x86_64 Tor resources. With an isolated home, the launcher reports `PurityWallet 1.2.0`.
+- Not run here: the Windows MSI and macOS DMG builds (PR CI), `:verifyCheckpoint` (no network code changed), and camera or macOS save dialog checks on real hardware.
+
 ### Upstream commits
 Each subject is upstream's. "Cherry-pick" shows the result of the in-order simulation described above.
 
