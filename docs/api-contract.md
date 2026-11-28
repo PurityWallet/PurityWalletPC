@@ -12,7 +12,7 @@
 
 Brand assets and documentation language changes do not change these external interfaces.
 
-The application reports version `1.1.1`, including in its local Electrum adapter banner. Native installer metadata uses the same version `1.1.1`.
+The application reports version `1.2.0`, including in its local Electrum adapter banner. Native installer metadata uses the same version `1.2.0`.
 
 Automatic PR CI does not change runtime APIs, wallet formats or dependency revisions. Its GitHub token has contents:read permission only. Workflows that resolve dependencies also pass the read-only repository secret `PWC_PACKAGES_TOKEN` (with the actor as user name) to Gradle, at step level, to download the PWC SDK from GitHub Packages; it is not a signing or notarization credential. Pull requests from forks do not receive it and cannot resolve the SDK. Test reports, JaCoCo coverage reports of the `:test` suite and unsigned Windows installers with SHA-256 files are CI artifacts, not published releases; coverage data is not sent to any external service. The live network checkpoint task remains a separate, explicitly invoked acceptance check.
 

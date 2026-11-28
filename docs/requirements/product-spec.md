@@ -3,7 +3,7 @@
 ## Identity and artwork
 
 Full and short name: **PurityWallet**. Command: `puritywallet`.
-Release version: **1.1.1**, shared by the application, archives, native installers and bundles.
+Release version: **1.2.0**, shared by the application, archives, native installers and bundles.
 Website: https://bitcoininstitute.com.au.
 
 Retain internal Java package names and compatible third-party import identifiers.
@@ -33,7 +33,7 @@ Use multi-resolution PurityWallet icons in macOS ICNS, Windows ICO and Linux PNG
 
 All project documentation, including requirements, architecture, API contracts, migration reports and task records, is written in English.
 
-Windows x64 releases include an MSI installer built on Windows. The installer filename uses `1.1.1`; MSI product metadata uses the same version `1.1.1`.
+Release 1.2.0 includes a Windows x64 MSI and a macOS Apple Silicon DMG, each built on its target platform and supplied with a SHA-256 checksum. Installer filenames and metadata use version `1.2.0`.
 
 macOS CI builds an Apple Silicon (`arm64`) DMG alongside Windows MSI validation on PRs targeting master, pushes to master and manual dispatch. Each DMG contains `puritywallet.app` and an Applications shortcut. Before uploading the DMG and SHA-256 as Actions artifacts, CI mounts the image and verifies the application's version, architecture, bundle identity and ad hoc signature. These builds do not require Apple credentials and are not notarized.
 

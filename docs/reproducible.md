@@ -13,7 +13,7 @@ and signed releases must be verified separately for each PurityWallet release.
 ### Install Java
 
 Because PurityWallet bundles a Java runtime in the release binaries, it is essential to have the same version of Java installed when creating the release.
-The inherited Sparrow build used Eclipse Temurin 18.0.1+10 for Sparrow v1.6.6 through v1.9.1, and 22.0.2+9 for Sparrow v2.0.0 through v2.3.1. PurityWallet 1.1.0 uses Eclipse Temurin 25.0.2+10.
+The inherited Sparrow build used Eclipse Temurin 18.0.1+10 for Sparrow v1.6.6 through v1.9.1, and 22.0.2+9 for Sparrow v2.0.0 through v2.3.1. PurityWallet 1.2.0 uses Eclipse Temurin 25.0.2+10.
 
 Note: Do not install Java using a system package manager (e.g. apt, dnf, rpm). 
 Linux packages replace the JDK's bundled `cacerts` file with a symlink to the system CA certificates, which differ from those in the release tarballs and will produce a non-reproducible build.
@@ -119,7 +119,7 @@ python src/test/packaging_test.py
 ./gradlew :test :jpackage
 ```
 
-The Windows build is the `windows-installer` job of the CI workflow, `.github/workflows/ci.yaml`. It runs on `windows-2022`, tests the project, builds an MSI, installs it on the disposable runner and checks the installed `puritywallet.exe --version` output. It uploads `puritywallet-1.1.0-windows-x64.msi` and its SHA-256 file. MSI product metadata uses the same version `1.1.0`. The installer is not Authenticode-signed.
+The Windows build is the `windows-installer` job of the CI workflow, `.github/workflows/ci.yaml`. It runs on `windows-2022`, tests the project, builds an MSI, installs it on the disposable runner and checks the installed `puritywallet.exe --version` output. It uploads `puritywallet-1.2.0-windows-x64.msi` and its SHA-256 file. MSI product metadata uses the same version `1.2.0`. The installer is not Authenticode-signed.
 
 A push to `codex/puritywallet-windows-1.0.0b` starts the CI workflow; it can also be dispatched manually once the workflow is registered on the repository's default branch. Publishing the current local changes to GitHub requires user approval before any push. The workflow does not create a public release or merge changes.
 
@@ -129,7 +129,7 @@ The first verified Windows build is [run 40490528703](https://github.com/PurityW
 
 The `macos-dmg` job of the CI workflow (`.github/workflows/ci.yaml`) runs alongside Windows packaging for PRs targeting master, pushes to master and manual dispatch. A native `macos-15` runner builds the Apple Silicon package with Temurin 25.0.2; CI builds no Intel package. Gradle runs regression tests and produces `build/jpackage/puritywallet.app`; the workflow applies an ad hoc signature and creates a compressed DMG containing the app and an Applications shortcut.
 
-CI mounts the DMG read-only and checks the launcher architecture, bundle identifier, bundle versions, code signature and `--version` output before uploading. Download `PurityWallet-1.1.0-macos-arm64` from the successful run's **Artifacts** section. It contains `puritywallet-1.1.0-macos-arm64.dmg` and its `.sha256` file. Extract both into the same directory and run `shasum -a 256 -c puritywallet-1.1.0-macos-arm64.dmg.sha256` to verify the checksum.
+CI mounts the DMG read-only and checks the launcher architecture, bundle identifier, bundle versions, code signature and `--version` output before uploading. Download `PurityWallet-1.2.0-macos-arm64` from the successful run's **Artifacts** section. It contains `puritywallet-1.2.0-macos-arm64.dmg` and its `.sha256` file. Extract both into the same directory and run `shasum -a 256 -c puritywallet-1.2.0-macos-arm64.dmg.sha256` to verify the checksum.
 
 These artifacts are ad hoc signed, without Developer ID signing or Apple notarization. Neither the CI workflow nor the manually dispatched `Package` workflow uses Apple signing credentials; both can create macOS DMGs without them. Official signing and notarization must run locally. Never upload signing private keys, certificates containing private keys, passwords or notarization credentials to GitHub repositories, Secrets, logs or artifacts. No GitHub Release is created by these workflows.
 

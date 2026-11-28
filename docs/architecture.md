@@ -18,7 +18,7 @@ Native icon containers include scaled versions of the existing transparent mobil
 
 All project documentation is written in English.
 
-The application, Gradle archives and native package metadata all use version `1.1.1`. jpackage uses the Gradle version directly; macOS bundle version fields use the same numeric value.
+The application, Gradle archives and native package metadata all use version `1.2.0`. jpackage uses the Gradle version directly; macOS bundle version fields use the same numeric value.
 
 PR CI is one workflow, `.github/workflows/ci.yaml`, with `tests` (Linux, with Xvfb for JavaFX), `windows-installer` and `macos-dmg` jobs (REQ-015). It runs for PRs targeting master and pushes to master, with manual dispatch retained, and one build of a CI service that runs a single workflow covers every check. Tests use separate build-directory application homes. The Windows job builds and installs the unsigned MSI and checks its executable version. Each job also runs the JaCoCo coverage report for the `:test` suite, without the interface-only and hardware card driver packages, prints its line and branch coverage, and uploads it (REQ-016). Test reports and installer checksums are uploaded as CI artifacts; no release is published.
 

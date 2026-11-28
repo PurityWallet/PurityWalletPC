@@ -9,8 +9,8 @@
 - Change only this project. Do not modify dependency sources, including drongo and lark.
 - Replace application icons and Sparrow artwork throughout the UI with the existing brand assets from the local PurityWallet project.
 - Write all project documentation in English.
-- The PurityWallet release version is 1.1.1, including application, archive and native installer metadata. Show a single version in the README.
-- Provide a Windows x64 MSI installer for release 1.1.1, built from the current PurityWallet sources on Windows.
+- The PurityWallet release version is 1.2.0, including application, archive and native installer metadata. Show a single version in the README.
+- Release 1.2.0 provides Windows x64 MSI and macOS Apple Silicon DMG installers with SHA-256 checksums. Build each installer natively from the release sources.
 - Build macOS Apple Silicon DMGs in CI alongside Windows MSI validation for PRs targeting master, pushes to master and manual dispatch. Upload versioned DMGs and SHA-256 files as Actions artifacts. Verify the mounted app's version, architecture, bundle metadata and ad hoc signature without Apple credentials or notarization.
 - Signing private keys, certificates containing private keys, passwords and notarization credentials must never enter GitHub, including repository contents, Secrets, logs and artifacts. Official signing and notarization must run locally; all GitHub packaging workflows must work without those credentials.
 - Commit and push the CI changes to master to trigger Windows MSI and macOS DMG builds. Defer official signing and notarization until the Apple Developer account's organization conversion is complete, keeping keys and passwords on the local machine.
